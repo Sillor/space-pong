@@ -47,7 +47,7 @@ public class GhostManager
 
 		float mass = 0.0f; // Mass 0 = STATIC / KINEMATIC
 
-		float[] halfExtents = {0.25f, 0.25f, 0.25f}; // Size matches ghost
+		float[] halfExtents = {0.5f, 2f, 0.5f}; // Size matches ghost
 
 		PhysicsObject physObj = sg.addPhysicsBox(
 				mass,          // <-- 0 mass means not affected by gravity

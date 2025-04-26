@@ -1,13 +1,5 @@
 package myGame;
 
-import java.awt.event.*;
-import java.io.*;
-import java.lang.Math;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-
-import net.java.games.input.Component;
-import org.joml.*;
 import tage.*;
 import tage.input.*;
 import tage.input.action.*;
@@ -15,44 +7,50 @@ import tage.networking.IGameConnection.ProtocolType;
 import tage.physics.*;
 import tage.shapes.*;
 
+import net.java.games.input.Component;
+import org.joml.*;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+/**
+ * Main game class. Handles initialization, updates, networking, and input.
+ */
 public class MyGame extends VariableFrameRateGame {
 	private static Engine engine;
-	private InputManager im;
-	private GhostManager gm;
-
-	private int counter = 0;
-	private double startTime, prevTime, elapsedTime, amt;
-
-	private GameObject tor, avatar, x, y, z, terr, groundPlane, ceilingPlane;
-	private ObjShape torS, ghostS, linxS, linyS, linzS, terrS, paddleS;
-	private TextureImage ghostT, paddleT, hills, rocks;
-	private Light light;
-	private Matrix4f avatarOriginalRotation;
-
-	private int skybox;
-	private boolean isLeftSide = true;
+	private InputManager inputManager;
+	private GhostManager ghostManager;
+	private ProtocolClient protocolClient;
 
 	private PhysicsEngine physicsEngine;
 
-	private String serverAddress;
-	private int serverPort;
-	private ProtocolType serverProtocol;
-	private ProtocolClient protClient;
+	private GameObject avatar;
+	private TextureImage paddleTexture;
+	private ObjShape ghostShape, paddleShape;
+
+	private boolean isLeftSide = true;
 	private boolean isClientConnected = false;
 
-	float lockedX;
-	float lockedZ;
+	private int skyboxTexture;
+	public float lockedX, lockedZ;
 
+	private final String serverAddress;
+	private final int serverPort;
+	private final ProtocolType serverProtocol;
+
+	private final float[] matrixValues = new float[16];
+
+	private double startTime;
+
+	private Matrix4f avatarOriginalRotation;
 
 	public MyGame(String serverAddress, int serverPort, String protocol) {
 		super();
-		gm = new GhostManager(this);
 		this.serverAddress = serverAddress;
 		this.serverPort = serverPort;
-		if (protocol.toUpperCase().compareTo("TCP") == 0)
-			this.serverProtocol = ProtocolType.TCP;
-		else
-			this.serverProtocol = ProtocolType.UDP;
+		this.serverProtocol = protocol.equalsIgnoreCase("TCP") ? ProtocolType.TCP : ProtocolType.UDP;
+		this.ghostManager = new GhostManager(this);
 	}
 
 	public static void main(String[] args) {
@@ -64,360 +62,254 @@ public class MyGame extends VariableFrameRateGame {
 
 	@Override
 	public void loadShapes() {
-		torS = new Torus(0.5f, 0.2f, 48);
-		ghostS = new ImportedModel("paddle.obj");
-		paddleS = new ImportedModel("paddle.obj");
-		terrS = new TerrainPlane(512);
-		linxS = new Line(new Vector3f(0f, 0f, 0f), new Vector3f(3f, 0f, 0f));
-		linyS = new Line(new Vector3f(0f, 0f, 0f), new Vector3f(0f, 3f, 0f));
-		linzS = new Line(new Vector3f(0f, 0f, 0f), new Vector3f(0f, 0f, -3f));
+		ghostShape = new ImportedModel("paddle.obj");
+		paddleShape = new ImportedModel("paddle.obj");
 	}
 
 	@Override
 	public void loadTextures() {
-		hills = new TextureImage("hills.jpg");
-		rocks = new TextureImage("rocks.jpg");
-		paddleT = new TextureImage("paddle1.png");
-		ghostT = new TextureImage("paddle1.png");
+		paddleTexture = new TextureImage("paddle1.png");
 	}
 
 	@Override
 	public void buildObjects() {
-		Matrix4f initialTranslation, initialScale;
+		buildAvatar();
+		buildTorus();
+		buildAxes();
+		buildTerrain();
+		buildGroundPlane();
+		buildCeilingPlane();
+	}
 
-		// build player avatar
-		avatar = new GameObject(GameObject.root(), paddleS, paddleT);
-		initialScale = (new Matrix4f()).scaling(0.25f);
-		avatar.setLocalScale(initialScale);
+	private void buildAvatar() {
+		avatar = new GameObject(GameObject.root(), paddleShape, paddleTexture);
+		avatar.setLocalScale(new Matrix4f().scaling(0.25f));
+		avatar.setLocalTranslation(new Matrix4f().translation(0f, 1f, 0f));
 
-		// build torus along X axis
-		tor = new GameObject(GameObject.root(), torS);
-		initialTranslation = (new Matrix4f()).translation(1, 0, 0);
-		tor.setLocalTranslation(initialTranslation);
-		initialScale = (new Matrix4f()).scaling(0.25f);
-		tor.setLocalScale(initialScale);
+		Matrix4f avatarTranslation = new Matrix4f(avatar.getLocalTranslation());
+		double[] avatarTransform = toDoubleArray(avatarTranslation.get(matrixValues));
+		PhysicsObject avatarPhysics = engine.getSceneGraph().addPhysicsBox(1.0f, avatarTransform, new float[]{0.5f, 2.0f, 0.5f});
+		avatar.setPhysicsObject(avatarPhysics);
+	}
 
-		// add X,Y,-Z axes
-		x = new GameObject(GameObject.root(), linxS);
-		y = new GameObject(GameObject.root(), linyS);
-		z = new GameObject(GameObject.root(), linzS);
-		(x.getRenderStates()).setColor(new Vector3f(1f, 0f, 0f));
-		(y.getRenderStates()).setColor(new Vector3f(0f, 1f, 0f));
-		(z.getRenderStates()).setColor(new Vector3f(0f, 0f, 1f));
+	private void buildTorus() {
+		GameObject torus = new GameObject(GameObject.root(), new Torus(0.5f, 0.2f, 48));
+		torus.setLocalTranslation(new Matrix4f().translation(1f, 0f, 0f));
+		torus.setLocalScale(new Matrix4f().scaling(0.25f));
+	}
 
-		// build terrain object
-		terr = new GameObject(GameObject.root(), terrS, rocks);
-		initialTranslation = (new Matrix4f()).translation(0f, -9f, 0f);
-		terr.setLocalTranslation(initialTranslation);
-		initialScale = (new Matrix4f()).scaling(60.0f, 6.0f, 60.0f);
-		terr.setLocalScale(initialScale);
-		terr.setHeightMap(hills);
-//		terr.getRenderStates().setWireframe(true);
-//		terr.getRenderStates().setHasSolidColor(true);
-		terr.getRenderStates().setColor(new Vector3f(0.5f,0,0));
+	private void buildAxes() {
+		GameObject xAxis = new GameObject(GameObject.root(), new Line(new Vector3f(0, 0, 0), new Vector3f(3, 0, 0)));
+		GameObject yAxis = new GameObject(GameObject.root(), new Line(new Vector3f(0, 0, 0), new Vector3f(0, 3, 0)));
+		GameObject zAxis = new GameObject(GameObject.root(), new Line(new Vector3f(0, 0, 0), new Vector3f(0, 0, -3)));
 
-		// set tiling for terrain texture
-		terr.getRenderStates().setTiling(1);
-		terr.getRenderStates().setTileFactor(10);
+		xAxis.getRenderStates().setColor(new Vector3f(1, 0, 0)); // Red
+		yAxis.getRenderStates().setColor(new Vector3f(0, 1, 0)); // Green
+		zAxis.getRenderStates().setColor(new Vector3f(0, 0, 1)); // Blue
+	}
 
-		// build ground plane
-		groundPlane = new GameObject(GameObject.root(), new Plane());
-		groundPlane.setLocalTranslation(new Matrix4f().translation(0f, -2f, 0f));
+	private void buildTerrain() {
+		GameObject terrain = new GameObject(GameObject.root(), new TerrainPlane(512), new TextureImage("rocks.jpg"));
+		terrain.setLocalTranslation(new Matrix4f().translation(0f, -9f, 0f));
+		terrain.setLocalScale(new Matrix4f().scaling(60f, 6f, 60f));
+		terrain.setHeightMap(new TextureImage("hills.jpg"));
+
+		terrain.getRenderStates().setColor(new Vector3f(0.5f, 0f, 0f));
+		terrain.getRenderStates().setTiling(1);
+		terrain.getRenderStates().setTileFactor(10);
+	}
+
+	private void buildGroundPlane() {
+		GameObject groundPlane = new GameObject(GameObject.root(), new Plane());
+		groundPlane.setLocalTranslation(new Matrix4f().translation(0f, -4f, 0f));
 		groundPlane.setLocalScale(new Matrix4f().scaling(20f));
-		double[] groundTransform = toDoubleArray(
-				(new Matrix4f(groundPlane.getLocalTranslation())).get(vals)
-		);
-		float[] up = {0f, 1f, 0f}; // normal facing up
-		PhysicsObject groundPhys = engine.getSceneGraph().addPhysicsStaticPlane(groundTransform, up, 0f);
 
-		groundPhys.setBounciness(0.8f);
-		groundPlane.setPhysicsObject(groundPhys);
-		groundPlane.getRenderStates().disableRendering();
+		double[] groundTransform = toDoubleArray(new Matrix4f(groundPlane.getLocalTranslation()).get(matrixValues));
+		PhysicsObject groundPhysics = engine.getSceneGraph().addPhysicsStaticPlane(groundTransform, new float[]{0f, 1f, 0f}, 0f);
+		groundPhysics.setBounciness(0.8f);
 
-		// build ceiling plane
-		ceilingPlane = new GameObject(GameObject.root(), new Plane());
-		ceilingPlane.setLocalTranslation(new Matrix4f().translation(0f, 2f, 0f)); // above the heads
+		groundPlane.setPhysicsObject(groundPhysics);
+		groundPlane.getRenderStates().disableRendering(); // Make it invisible
+	}
+
+	private void buildCeilingPlane() {
+		GameObject ceilingPlane = new GameObject(GameObject.root(), new Plane());
+		ceilingPlane.setLocalTranslation(new Matrix4f().translation(0f, 4f, 0f));
 		ceilingPlane.setLocalScale(new Matrix4f().scaling(20f));
 
-		double[] ceilingTransform = toDoubleArray(
-				(new Matrix4f(ceilingPlane.getLocalTranslation())).get(vals)
-		);
-		float[] down = {0f, -1f, 0f}; // normal facing downward
-		PhysicsObject ceilingPhys = engine.getSceneGraph().addPhysicsStaticPlane(ceilingTransform, down, 0f);
+		double[] ceilingTransform = toDoubleArray(new Matrix4f(ceilingPlane.getLocalTranslation()).get(matrixValues));
+		PhysicsObject ceilingPhysics = engine.getSceneGraph().addPhysicsStaticPlane(ceilingTransform, new float[]{0f, -1f, 0f}, 0f);
+		ceilingPhysics.setBounciness(0.8f);
 
-		ceilingPhys.setBounciness(0.8f);
-		ceilingPlane.setPhysicsObject(ceilingPhys);
-
+		ceilingPlane.setPhysicsObject(ceilingPhysics);
 	}
 
 	@Override
 	public void initializeLights() {
-		Light.setGlobalAmbient(.5f, .2f, .5f);
-
-		light = new Light();
+		Light.setGlobalAmbient(0.5f, 0.2f, 0.5f);
+		Light light = new Light();
 		light.setLocation(new Vector3f(0f, 5f, 5f));
-		(engine.getSceneGraph()).addLight(light);
+		engine.getSceneGraph().addLight(light);
 	}
 
 	@Override
 	public void loadSkyBoxes() {
-		skybox = (engine.getSceneGraph()).loadCubeMap("space");
-		(engine.getSceneGraph()).setActiveSkyBoxTexture(skybox);
-		(engine.getSceneGraph()).setSkyBoxEnabled(true);
+		skyboxTexture = engine.getSceneGraph().loadCubeMap("space");
+		engine.getSceneGraph().setActiveSkyBoxTexture(skyboxTexture);
+		engine.getSceneGraph().setSkyBoxEnabled(true);
 	}
 
 	@Override
 	public void initializeGame() {
-		prevTime = System.currentTimeMillis();
 		startTime = System.currentTimeMillis();
-		(engine.getRenderSystem()).setWindowDimensions(1900, 1000);
-
+		engine.getRenderSystem().setWindowDimensions(1900, 1000);
 		engine.enablePhysicsWorldRender();
 
-		physicsEngine = (engine.getSceneGraph()).getPhysicsEngine();
+		physicsEngine = engine.getSceneGraph().getPhysicsEngine();
 		physicsEngine.setGravity(new float[]{0f, -9.8f, 0f});
 
-		Matrix4f avatarTranslation = new Matrix4f(avatar.getLocalTranslation());
-		double[] avatarTransforms = toDoubleArray(avatarTranslation.get(vals));
-
-		PhysicsObject paddlePhysics = (engine.getSceneGraph()).addPhysicsBox(1.0f, avatarTransforms, new float[]{0.5f, 0.5f, 0.5f});
-		avatar.setPhysicsObject(paddlePhysics);
-		// ----------------- initialize camera ----------------
-
-		Camera c = (engine.getRenderSystem()).getViewport("MAIN").getCamera();
-		c.setLocation(new Vector3f(0f, 1f, 6f));
-		c.setU(new Vector3f(1, 0, 0));
-		c.setV(new Vector3f(0, 1, 0));
-		c.setN(new Vector3f(0, 0, -1));
-
 		setupNetworking();
-
-		// ----------------- INPUTS SECTION -----------------------------
-		im = engine.getInputManager();
-
-		// build some action objects for doing things in response to user input
-		vAction upAction = new vAction(this, true);
-		vAction downAction = new vAction(this, false);
-		TurnAction turnAction = new TurnAction(this);
-
-		CameraTurnAction camUpAction = new CameraTurnAction(this,
-				new Vector3f(1, 0, 0));
-		CameraTurnAction camDownAction = new CameraTurnAction(this,
-				new Vector3f(-1, 0, 0));
-		CameraTurnAction camLeftAction = new CameraTurnAction(this,
-				new Vector3f(0, 1, 0));
-		CameraTurnAction camRightAction = new CameraTurnAction(this,
-				new Vector3f(0, -1, 0));
-
-		// attach the action objects to keyboard and gamepad components
-		im.associateActionWithAllGamepads(
-				net.java.games.input.Component.Identifier.Button._1, upAction,
-				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-		im.associateActionWithAllGamepads(
-				net.java.games.input.Component.Identifier.Axis.X, turnAction,
-				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-
-		im.associateActionWithAllKeyboards(
-				Component.Identifier.Key.W, upAction,
-				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-		im.associateActionWithAllKeyboards(
-				Component.Identifier.Key.S, downAction,
-				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-
-		im.associateActionWithAllKeyboards(
-				Component.Identifier.Key.LEFT, camLeftAction,
-				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-		im.associateActionWithAllKeyboards(
-				Component.Identifier.Key.RIGHT, camRightAction,
-				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-		im.associateActionWithAllKeyboards(
-				Component.Identifier.Key.UP, camUpAction,
-				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-		im.associateActionWithAllKeyboards(
-				Component.Identifier.Key.DOWN, camDownAction,
-				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-
-		im.associateActionWithAllKeyboards(
-				Component.Identifier.Key.ESCAPE,
-				new SendCloseConnectionPacketAction(),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-	}
-
-	public GameObject getAvatar() {
-		return avatar;
-	}
-
-	public Camera getCamera() {
-		return (engine.getRenderSystem()).getViewport("MAIN").getCamera();
-	}
-
-	@Override
-	public void update()
-	{
-		elapsedTime = System.currentTimeMillis() - prevTime;
-		prevTime = System.currentTimeMillis();
-		amt = elapsedTime * 0.03;
-
-		Camera c = (engine.getRenderSystem()).getViewport("MAIN").getCamera();
-
-		// HUD update
-		int elapsTimeSec = Math.round(
-				(float) (System.currentTimeMillis() - startTime) / 1000.0f);
-		String elapsTimeStr = Integer.toString(elapsTimeSec);
-		String dispStr1 = "Time = " + elapsTimeStr;
-		String dispStr2 = "camera position = " + (c.getLocation()).x() + ", "
-				+ (c.getLocation()).y() + ", " + (c.getLocation()).z();
-		Vector3f hud1Color = new Vector3f(1, 0, 0);
-		Vector3f hud2Color = new Vector3f(1, 1, 1);
-		(engine.getHUDmanager()).setHUD1(dispStr1, hud1Color, 15, 15);
-		(engine.getHUDmanager()).setHUD2(dispStr2, hud2Color, 500, 15);
-
-		// inputs and networking
-		im.update((float) elapsedTime);
-		processNetworking((float) elapsedTime);
-
-		// PHYSICS step
-		physicsEngine.update((float)elapsedTime);
-
-		// ----------- LOCAL PLAYER (Avatar) MOVEMENT LOCKING ------------
-
-		if (avatar != null && avatar.getPhysicsObject() != null)
-		{
-			double[] transform = avatar.getPhysicsObject().getTransform();
-
-			// Force X and Z back to locked positions
-			transform[12] = lockedX;
-			transform[14] = lockedZ;
-
-			avatar.getPhysicsObject().setTransform(transform);
-
-			// Then reset sideways velocity
-			float[] velocity = avatar.getPhysicsObject().getLinearVelocity();
-			velocity[0] = 0f;
-			velocity[2] = 0f;
-			avatar.getPhysicsObject().setLinearVelocity(velocity);
-
-			// Reset angular velocity
-			float[] angularVelocity = avatar.getPhysicsObject().getAngularVelocity();
-			angularVelocity[0] = 0f;
-			angularVelocity[1] = 0f;
-			angularVelocity[2] = 0f;
-			avatar.getPhysicsObject().setAngularVelocity(angularVelocity);
-
-			// Sync visuals
-			Matrix4f mat = new Matrix4f();
-			mat.set(toFloatArray(avatar.getPhysicsObject().getTransform()));
-			Matrix4f translationMatrix = new Matrix4f().identity();
-			translationMatrix.set(3, 0, mat.m30());
-			translationMatrix.set(3, 1, mat.m31());
-			translationMatrix.set(3, 2, mat.m32());
-			avatar.setLocalTranslation(translationMatrix);
-
-			avatar.setLocalRotation(new Matrix4f(getAvatarOriginalRotation()));
-		}
-
-
-
-
-		// ----------- SEND POSITION TO SERVER ------------
-		protClient.sendMoveMessage(avatar.getWorldLocation());
-
-		// ----------- UPDATE GHOSTS ------------
-		for (GhostAvatar ghost : gm.getGhostAvatars())
-		{
-			ghost.syncToPhysics(); // ghost ignores physics simulation, just syncs from network
-		}
-	}
-
-
-	// ---------- NETWORKING SECTION ----------------
-
-	public ObjShape getGhostShape() {
-		return ghostS;
-	}
-	public TextureImage getGhostTexture() {
-		return ghostT;
-	}
-	public GhostManager getGhostManager() {
-		return gm;
-	}
-	public Engine getEngine() {
-		return engine;
+		setupInput();
+		setupCamera();
 	}
 
 	private void setupNetworking() {
-		isClientConnected = false;
 		try {
-			protClient =
-					new ProtocolClient(InetAddress.getByName(serverAddress),
-							serverPort, serverProtocol, this);
-		} catch (UnknownHostException e) {
-			e.printStackTrace();
+			protocolClient = new ProtocolClient(InetAddress.getByName(serverAddress), serverPort, serverProtocol, this);
+			protocolClient.sendJoinMessage();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		if (protClient == null) {
-			System.out.println("missing protocol host");
-		} else { // Send the initial join message with a unique identifier for
-			// this client
-			System.out.println("sending join message to protocol host");
-			protClient.sendJoinMessage();
+	}
+
+	private void setupInput() {
+		inputManager = engine.getInputManager();
+
+		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.W, new vAction(this, true), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.S, new vAction(this, false), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.LEFT, new CameraTurnAction(this, new Vector3f(0, 1, 0)), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.RIGHT, new CameraTurnAction(this, new Vector3f(0, -1, 0)), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.UP, new CameraTurnAction(this, new Vector3f(1, 0, 0)), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.DOWN, new CameraTurnAction(this, new Vector3f(-1, 0, 0)), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.ESCAPE, new SendCloseConnectionPacketAction(), InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+
+		inputManager.associateActionWithAllGamepads(Component.Identifier.Button._1, new vAction(this, true), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+		inputManager.associateActionWithAllGamepads(Component.Identifier.Axis.X, new TurnAction(this), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+	}
+
+	private void setupCamera() {
+		Camera camera = engine.getRenderSystem().getViewport("MAIN").getCamera();
+		camera.setLocation(new Vector3f(0f, 1f, 6f));
+		camera.setU(new Vector3f(1, 0, 0));
+		camera.setV(new Vector3f(0, 1, 0));
+		camera.setN(new Vector3f(0, 0, -1));
+	}
+
+	@Override
+	public void update() {
+		double elapsedTime = System.currentTimeMillis() - startTime;
+		startTime = System.currentTimeMillis();
+
+		updateHUD();
+
+		inputManager.update((float) elapsedTime);
+		if (protocolClient != null) protocolClient.processPackets();
+		if (physicsEngine != null) physicsEngine.update((float) elapsedTime);
+
+		if (avatar != null && avatar.getPhysicsObject() != null) {
+			syncAvatarPhysics();
 		}
+
+		if (protocolClient != null) {
+			protocolClient.sendMoveMessage(avatar.getWorldLocation());
+		}
+
+		for (GhostAvatar ghost : ghostManager.getGhostAvatars()) {
+			ghost.syncToPhysics();
+		}
+
+		System.out.println("Avatar position: " + avatar.getWorldLocation());
+		System.out.println("Avatar Render enabled: " + avatar.getRenderStates().renderingEnabled());
 	}
 
-	protected void processNetworking(
-			float elapsTime) { // Process packets received by the client from the
-		// server
-		if (protClient != null)
-			protClient.processPackets();
+	private void updateHUD() {
+		Camera camera = engine.getRenderSystem().getViewport("MAIN").getCamera();
+
+		String hud1 = "Time = " + (int) ((System.currentTimeMillis() - startTime) / 1000);
+		String hud2 = String.format("Camera position = %.2f, %.2f, %.2f",
+				camera.getLocation().x(),
+				camera.getLocation().y(),
+				camera.getLocation().z());
+
+		engine.getHUDmanager().setHUD1(hud1, new Vector3f(1, 0, 0), 15, 15);
+		engine.getHUDmanager().setHUD2(hud2, new Vector3f(1, 1, 1), 500, 15);
 	}
 
-	public Vector3f getPlayerPosition() {
-		return avatar.getWorldLocation();
+	private void syncAvatarPhysics() {
+		double[] transform = avatar.getPhysicsObject().getTransform();
+		transform[12] = lockedX;
+		transform[14] = lockedZ;
+		avatar.getPhysicsObject().setTransform(transform);
+
+		float[] velocity = avatar.getPhysicsObject().getLinearVelocity();
+		velocity[0] = velocity[2] = 0f;
+		avatar.getPhysicsObject().setLinearVelocity(velocity);
+
+		float[] angularVelocity = avatar.getPhysicsObject().getAngularVelocity();
+		angularVelocity[0] = angularVelocity[1] = angularVelocity[2] = 0f;
+		avatar.getPhysicsObject().setAngularVelocity(angularVelocity);
+
+		Matrix4f fullMatrix = new Matrix4f().set(toFloatArray(avatar.getPhysicsObject().getTransform()));
+		Vector3f translation = new Vector3f();
+		fullMatrix.getTranslation(translation);
+
+		avatar.setLocalTranslation(new Matrix4f().translation(translation));
 	}
 
-	public void setIsConnected(boolean value) {
-		this.isClientConnected = value;
-	}
+
+	public GameObject getAvatar() { return avatar; }
+	public Camera getCamera() { return engine.getRenderSystem().getViewport("MAIN").getCamera(); }
+	public ObjShape getGhostShape() { return ghostShape; }
+	public TextureImage getGhostTexture() { return paddleTexture; }
+	public GhostManager getGhostManager() { return ghostManager; }
+	public Engine getEngine() { return engine; }
+	public float getLockedX() { return lockedX; }
+	public float getLockedZ() { return lockedZ; }
+	public void setLockedX(float x) { lockedX = x; }
+	public void setLockedZ(float z) { lockedZ = z;	}
+	public void setAvatarOriginalRotation(Matrix4f rotation) { this.avatarOriginalRotation = new Matrix4f(rotation); }
+	public Matrix4f getAvatarOriginalRotation() { return new Matrix4f(avatarOriginalRotation); }
+
+
+	public Vector3f getPlayerPosition() { return avatar.getWorldLocation(); }
+	public void setIsConnected(boolean connected) { isClientConnected = connected; }
+	public void setLeftSide(boolean side) { isLeftSide = side; }
+	public boolean getLeftSide() { return isLeftSide; }
 
 	private class SendCloseConnectionPacketAction extends AbstractInputAction {
 		@Override
-		public void performAction(float time, net.java.games.input.Event evt) {
-			if (protClient != null && isClientConnected == true) {
-				protClient.sendByeMessage();
+		public void performAction(float time, net.java.games.input.Event event) {
+			if (protocolClient != null && isClientConnected) {
+				protocolClient.sendByeMessage();
 			}
 		}
 	}
 
-	private float vals[] = new float[16];
-
-	private double[] toDoubleArray(float[] arr) {
-		if (arr == null) return null;
-		int n = arr.length;
-		double[] ret = new double[n];
-		for (int i = 0; i < n; i++) {
-			ret[i] = (double)arr[i];
+	private double[] toDoubleArray(float[] array) {
+		if (array == null) return null;
+		double[] result = new double[array.length];
+		for (int i = 0; i < array.length; i++) {
+			result[i] = array[i];
 		}
-		return ret;
+		return result;
 	}
 
-	private float[] toFloatArray(double[] arr)
-	{ if (arr == null) return null;
-		int n = arr.length;
-		float[] ret = new float[n];
-		for (int i = 0; i < n; i++)
-		{ ret[i] = (float)arr[i];
+	private float[] toFloatArray(double[] array) {
+		if (array == null) return null;
+		float[] result = new float[array.length];
+		for (int i = 0; i < array.length; i++) {
+			result[i] = (float) array[i];
 		}
-		return ret;
-	}
-
-	public void setLeftSide(boolean side) { isLeftSide = side; }
-	public boolean getLeftSide() { return isLeftSide; }
-
-	public void setAvatarOriginalRotation(Matrix4f rotation) {
-		this.avatarOriginalRotation = rotation;
-	}
-	public Matrix4f getAvatarOriginalRotation() {
-		return avatarOriginalRotation;
+		return result;
 	}
 }
