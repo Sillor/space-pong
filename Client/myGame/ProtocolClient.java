@@ -27,61 +27,40 @@ public class ProtocolClient extends GameConnectionClient
 	}
 	
 	public UUID getID() { return id; }
-	
+
 	@Override
 	protected void processPacket(Object message)
-	{	String strMessage = (String)message;
+	{
+		if (message == null) {
+			System.out.println("Warning: received null packet");
+			return;
+		}
+
+		String strMessage = (String) message;
 		System.out.println("message received -->" + strMessage);
 		String[] messageTokens = strMessage.split(",");
-		
-		// Game specific protocol to handle the message
-		if(messageTokens.length > 0)
+
+		if (messageTokens.length > 0)
 		{
-			// Handle JOIN message
-			// Format: (join,success) or (join,failure)
-			if(messageTokens[0].compareTo("join") == 0)
-			{	if(messageTokens[1].compareTo("success") == 0)
-				{	System.out.println("join success confirmed");
+			if (messageTokens[0].compareTo("join") == 0)
+			{
+				if (messageTokens[1].compareTo("success") == 0)
+				{
+					System.out.println("join success confirmed");
 					game.setIsConnected(true);
 					sendCreateMessage(game.getPlayerPosition());
 				}
-				if(messageTokens[1].compareTo("failure") == 0)
-				{	System.out.println("join failure confirmed");
+				if (messageTokens[1].compareTo("failure") == 0)
+				{
+					System.out.println("join failure confirmed");
 					game.setIsConnected(false);
-			}	}
-			
-			// Handle BYE message
-			// Format: (bye,remoteId)
-			if(messageTokens[0].compareTo("bye") == 0)
-			{	// remove ghost avatar with id = remoteId
-				// Parse out the id into a UUID
-				UUID ghostID = UUID.fromString(messageTokens[1]);
-				ghostManager.removeGhostAvatar(ghostID);
+				}
 			}
 
-			// Handle CREATE message
-			// Format: (create,remoteId,x,y,z)
-			// AND
-			// Handle DETAILS_FOR message
-			// Format: (dsfr,remoteId,x,y,z)
-			if (messageTokens[0].compareTo("dsfr") == 0)
+			if (messageTokens[0].compareTo("bye") == 0)
 			{
-				UUID remoteId = UUID.fromString(messageTokens[1]);
-				Vector3f pos = new Vector3f(
-						Float.parseFloat(messageTokens[2]),
-						Float.parseFloat(messageTokens[3]),
-						Float.parseFloat(messageTokens[4])
-				);
-
-				if (remoteId.equals(this.id)) {
-					System.out.println("Setting local avatar position from server to: " + pos);
-				} else {
-					try {
-						ghostManager.createGhostAvatar(remoteId, pos);
-					} catch (IOException e) {
-						System.out.println("error creating ghost avatar");
-					}
-				}
+				UUID ghostID = UUID.fromString(messageTokens[1]);
+				ghostManager.removeGhostAvatar(ghostID);
 			}
 
 			if (messageTokens[0].compareTo("create") == 0)
@@ -93,63 +72,107 @@ public class ProtocolClient extends GameConnectionClient
 						Float.parseFloat(messageTokens[4])
 				);
 
+				if (remoteId.equals(this.id))  // local player
+				{
+					game.lockedX = pos.x();
+					game.lockedZ = pos.z();
+				}
+
+
 				this.playerNumber = Integer.parseInt(messageTokens[5]);
 				System.out.println("remoteId: " + remoteId.toString() + " playerNumber: " + playerNumber);
 
-				if (remoteId.equals(this.id)) {
+				if (remoteId.equals(this.id))
+				{
 					System.out.println("Setting local avatar position from server to: " + pos);
 					Matrix4f avatarMat = new Matrix4f().translation(pos);
 					double[] avatarTransform = toDoubleArray(avatarMat.get(vals));
 					game.getAvatar().getPhysicsObject().setTransform(avatarTransform);
 
-					if (playerNumber == 0) {
-						game.getAvatar().setLocalRotation(new Matrix4f().rotateY(Math.toRadians(90)).rotateX(
-								Math.toRadians(90)));
-					} else if (playerNumber == 1) {
-						game.getAvatar().setLocalRotation(new Matrix4f().rotateY(Math.toRadians(90)).rotateX(
-								Math.toRadians(-90)));
+					if (playerNumber == 0)
+					{
+						Matrix4f initialRot = new Matrix4f()
+								.rotateY((float) Math.toRadians(90))
+								.rotateX((float) Math.toRadians(90));
+						game.getAvatar().setLocalRotation(initialRot);
+						game.setAvatarOriginalRotation(initialRot);
 					}
-				} else {
-					try {
-						ghostManager.createGhostAvatar(remoteId, pos);
-					} catch (IOException e) {
+					else if (playerNumber == 1)
+					{
+						Matrix4f initialRot = new Matrix4f()
+								.rotateY((float) Math.toRadians(90))
+								.rotateX((float) Math.toRadians(-90));
+						game.getAvatar().setLocalRotation(initialRot);
+						game.setAvatarOriginalRotation(initialRot);
+					}
+
+				}
+				else
+				{
+					try
+					{
+						boolean ghostLeftSide = (playerNumber == 0);
+						ghostManager.createGhostAvatar(remoteId, pos, ghostLeftSide);
+					}
+					catch (IOException e)
+					{
 						System.out.println("error creating ghost avatar");
 					}
 				}
 			}
 
-			if (messageTokens[0].compareTo("playerNumber") == 0) {
+			if (messageTokens[0].compareTo("dsfr") == 0)
+			{
+				UUID remoteId = UUID.fromString(messageTokens[1]);
+				Vector3f pos = new Vector3f(
+						Float.parseFloat(messageTokens[2]),
+						Float.parseFloat(messageTokens[3]),
+						Float.parseFloat(messageTokens[4])
+				);
+
+				if (remoteId.equals(this.id))
+				{
+					System.out.println("Setting local avatar position from server to: " + pos);
+				}
+				else
+				{
+					try
+					{
+						boolean ghostLeftSide = (pos.x() < 0); // Temporary guess
+						ghostManager.createGhostAvatar(remoteId, pos, ghostLeftSide);
+					}
+					catch (IOException e)
+					{
+						System.out.println("error creating ghost avatar");
+					}
+				}
+			}
+
+			if (messageTokens[0].compareTo("playerNumber") == 0)
+			{
 				playerNumber = Integer.parseInt(messageTokens[1]);
 				System.out.println("Received player number: " + playerNumber);
 			}
 
-			// Handle WANTS_DETAILS message
-			// Format: (wsds,remoteId)
 			if (messageTokens[0].compareTo("wsds") == 0)
 			{
-				// Send the local client's avatar's information
-				// Parse out the id into a UUID
 				UUID ghostID = UUID.fromString(messageTokens[1]);
 				sendDetailsForMessage(ghostID, game.getPlayerPosition());
 			}
-			
-			// Handle MOVE message
-			// Format: (move,remoteId,x,y,z)
+
 			if (messageTokens[0].compareTo("move") == 0)
 			{
-				// move a ghost avatar
-				// Parse out the id into a UUID
 				UUID ghostID = UUID.fromString(messageTokens[1]);
-				
-				// Parse out the position into a Vector3f
 				Vector3f ghostPosition = new Vector3f(
-					Float.parseFloat(messageTokens[2]),
-					Float.parseFloat(messageTokens[3]),
-					Float.parseFloat(messageTokens[4]));
-				
+						Float.parseFloat(messageTokens[2]),
+						Float.parseFloat(messageTokens[3]),
+						Float.parseFloat(messageTokens[4])
+				);
 				ghostManager.updateGhostAvatar(ghostID, ghostPosition);
-	}	}	}
-	
+			}
+		}
+	}
+
 	// The initial message from the game client requesting to join the 
 	// server. localId is a unique identifier for the client. Recommend 
 	// a random UUID.

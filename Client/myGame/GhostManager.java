@@ -1,16 +1,12 @@
 package myGame;
 
-import java.awt.Color;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.Vector;
 import org.joml.*;
-import tage.physics.*;
-
-import org.joml.Math;
 import tage.*;
+import tage.physics.*;
 
 public class GhostManager
 {
@@ -23,13 +19,13 @@ public class GhostManager
 		game = (MyGame)vfrg;
 	}
 
-	public void createGhostAvatar(UUID id, Vector3f position) throws IOException
+	public void createGhostAvatar(UUID id, Vector3f position, boolean leftSide) throws IOException
 	{
 		System.out.println("adding ghost with ID --> " + id);
 
 		ObjShape s = game.getGhostShape();
 		TextureImage t = game.getGhostTexture();
-		GhostAvatar newAvatar = new GhostAvatar(id, s, t, position);
+		GhostAvatar newAvatar = new GhostAvatar(id, s, t, position, leftSide);
 
 		// Set visual size
 		Matrix4f initialScale = (new Matrix4f()).scaling(0.25f);
@@ -37,8 +33,8 @@ public class GhostManager
 
 		// Add ghost to list
 		ghostAvatars.add(newAvatar);
-		updateGhostAvatar(id, position);
 
+		// --- Create PhysicsObject now ---
 		PhysicsObject ghostPhys = createGhostPhysics(newAvatar);
 		newAvatar.setPhysicsObject(ghostPhys);
 	}
@@ -49,11 +45,12 @@ public class GhostManager
 		Matrix4f ghostTrans = new Matrix4f(ghost.getLocalTranslation());
 		double[] ghostTransform = toDoubleArray(ghostTrans.get(vals));
 
-		float mass = 1.0f; // Mass > 0 = dynamic
-		float[] halfExtents = {0.25f, 0.25f, 0.25f}; // Size matches scale
+		float mass = 0.0f; // Mass 0 = STATIC / KINEMATIC
+
+		float[] halfExtents = {0.25f, 0.25f, 0.25f}; // Size matches ghost
 
 		PhysicsObject physObj = sg.addPhysicsBox(
-				mass,
+				mass,          // <-- 0 mass means not affected by gravity
 				ghostTransform,
 				halfExtents
 		);
@@ -67,7 +64,7 @@ public class GhostManager
 	public void removeGhostAvatar(UUID id)
 	{
 		GhostAvatar ghostAvatar = findAvatar(id);
-		if(ghostAvatar != null)
+		if (ghostAvatar != null)
 		{
 			game.getEngine().getSceneGraph().removeGameObject(ghostAvatar);
 			ghostAvatars.remove(ghostAvatar);
@@ -80,12 +77,9 @@ public class GhostManager
 
 	private GhostAvatar findAvatar(UUID id)
 	{
-		GhostAvatar ghostAvatar;
-		Iterator<GhostAvatar> it = ghostAvatars.iterator();
-		while(it.hasNext())
+		for (GhostAvatar ghostAvatar : ghostAvatars)
 		{
-			ghostAvatar = it.next();
-			if(ghostAvatar.getID().compareTo(id) == 0)
+			if (ghostAvatar.getID().compareTo(id) == 0)
 			{
 				return ghostAvatar;
 			}
@@ -96,57 +90,19 @@ public class GhostManager
 	public void updateGhostAvatar(UUID id, Vector3f position)
 	{
 		GhostAvatar ghostAvatar = findAvatar(id);
-		if (ghostAvatar != null)
+		if (ghostAvatar != null && ghostAvatar.getPhysicsObject() != null)
 		{
-			float y = position.y;
-
+			// Set the new Y position (keep X and Z locked depending on side)
 			double[] transform = ghostAvatar.getPhysicsObject().getTransform();
-
-			if (!game.getLeftSide())
-			{
-				// --- Lock ghost to left ---
-				ghostAvatar.setLocalRotation(new Matrix4f()
-						.rotateY((float) Math.toRadians(90))
-						.rotateX((float) Math.toRadians(90)));
-				ghostAvatar.setLocalTranslation(new Matrix4f().translation(-5f, y, 0f));
-
-				transform[0] = 1; transform[1] = 0; transform[2] = 0;
-				transform[4] = 0; transform[5] = 1; transform[6] = 0;
-				transform[8] = 0; transform[9] = 0; transform[10] = 1;
-
-				transform[12] = -5.0;
-				transform[13] = y;
-				transform[14] = 0.0;
-
-				ghostAvatar.getPhysicsObject().setTransform(transform);
-			}
-			else
-			{
-				// --- Lock ghost to right ---
-				ghostAvatar.setLocalRotation(new Matrix4f()
-						.rotateY((float) Math.toRadians(90))
-						.rotateX((float) Math.toRadians(-90)));
-				ghostAvatar.setLocalTranslation(new Matrix4f().translation(5f, y, 0f));
-
-				transform[0] = 1; transform[1] = 0; transform[2] = 0;
-				transform[4] = 0; transform[5] = 1; transform[6] = 0;
-				transform[8] = 0; transform[9] = 0; transform[10] = 1;
-
-				transform[12] = 5.0;
-				transform[13] = y;
-				transform[14] = 0.0;
-
-				ghostAvatar.getPhysicsObject().setTransform(transform);
-			}
+			transform[13] = position.y; // only update Y
+			ghostAvatar.getPhysicsObject().setTransform(transform);
 		}
 	}
-
 
 	public Vector<GhostAvatar> getGhostAvatars() {
 		return ghostAvatars;
 	}
 
-	// Helper to convert float[16] -> double[16]
 	private double[] toDoubleArray(float[] arr) {
 		if (arr == null) return null;
 		int n = arr.length;
@@ -157,4 +113,3 @@ public class GhostManager
 		return ret;
 	}
 }
-

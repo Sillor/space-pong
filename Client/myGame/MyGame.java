@@ -27,6 +27,7 @@ public class MyGame extends VariableFrameRateGame {
 	private ObjShape torS, ghostS, linxS, linyS, linzS, terrS, paddleS;
 	private TextureImage ghostT, paddleT, hills, rocks;
 	private Light light;
+	private Matrix4f avatarOriginalRotation;
 
 	private int skybox;
 	private boolean isLeftSide = true;
@@ -38,6 +39,10 @@ public class MyGame extends VariableFrameRateGame {
 	private ProtocolType serverProtocol;
 	private ProtocolClient protClient;
 	private boolean isClientConnected = false;
+
+	float lockedX;
+	float lockedZ;
+
 
 	public MyGame(String serverAddress, int serverPort, String protocol) {
 		super();
@@ -247,17 +252,18 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	@Override
-	public void update() {
+	public void update()
+	{
 		elapsedTime = System.currentTimeMillis() - prevTime;
 		prevTime = System.currentTimeMillis();
 		amt = elapsedTime * 0.03;
+
 		Camera c = (engine.getRenderSystem()).getViewport("MAIN").getCamera();
 
-		// build and set HUD
+		// HUD update
 		int elapsTimeSec = Math.round(
 				(float) (System.currentTimeMillis() - startTime) / 1000.0f);
 		String elapsTimeStr = Integer.toString(elapsTimeSec);
-		String counterStr = Integer.toString(counter);
 		String dispStr1 = "Time = " + elapsTimeStr;
 		String dispStr2 = "camera position = " + (c.getLocation()).x() + ", "
 				+ (c.getLocation()).y() + ", " + (c.getLocation()).z();
@@ -266,78 +272,63 @@ public class MyGame extends VariableFrameRateGame {
 		(engine.getHUDmanager()).setHUD1(dispStr1, hud1Color, 15, 15);
 		(engine.getHUDmanager()).setHUD2(dispStr2, hud2Color, 500, 15);
 
-		// update inputs and camera
+		// inputs and networking
 		im.update((float) elapsedTime);
 		processNetworking((float) elapsedTime);
+
+		// PHYSICS step
 		physicsEngine.update((float)elapsedTime);
 
-		if (avatar.getPhysicsObject() != null) {
+		// ----------- LOCAL PLAYER (Avatar) MOVEMENT LOCKING ------------
+
+		if (avatar != null && avatar.getPhysicsObject() != null)
+		{
+			double[] transform = avatar.getPhysicsObject().getTransform();
+
+			// Force X and Z back to locked positions
+			transform[12] = lockedX;
+			transform[14] = lockedZ;
+
+			avatar.getPhysicsObject().setTransform(transform);
+
+			// Then reset sideways velocity
+			float[] velocity = avatar.getPhysicsObject().getLinearVelocity();
+			velocity[0] = 0f;
+			velocity[2] = 0f;
+			avatar.getPhysicsObject().setLinearVelocity(velocity);
+
+			// Reset angular velocity
+			float[] angularVelocity = avatar.getPhysicsObject().getAngularVelocity();
+			angularVelocity[0] = 0f;
+			angularVelocity[1] = 0f;
+			angularVelocity[2] = 0f;
+			avatar.getPhysicsObject().setAngularVelocity(angularVelocity);
+
+			// Sync visuals
 			Matrix4f mat = new Matrix4f();
-			Matrix4f translationMatrix = new Matrix4f().identity();
-			AxisAngle4f rotationAxis = new AxisAngle4f();
-
 			mat.set(toFloatArray(avatar.getPhysicsObject().getTransform()));
-
-			// Set the translation part
+			Matrix4f translationMatrix = new Matrix4f().identity();
 			translationMatrix.set(3, 0, mat.m30());
 			translationMatrix.set(3, 1, mat.m31());
 			translationMatrix.set(3, 2, mat.m32());
 			avatar.setLocalTranslation(translationMatrix);
 
-			// Set the rotation part
-			mat.getRotation(rotationAxis);
-			Matrix4f rotationMatrix = new Matrix4f().identity().rotation(rotationAxis);
-			avatar.setLocalRotation(rotationMatrix);
+			avatar.setLocalRotation(new Matrix4f(getAvatarOriginalRotation()));
 		}
 
+
+
+
+		// ----------- SEND POSITION TO SERVER ------------
 		protClient.sendMoveMessage(avatar.getWorldLocation());
 
-		if (avatar != null && avatar.getPhysicsObject() != null)
+		// ----------- UPDATE GHOSTS ------------
+		for (GhostAvatar ghost : gm.getGhostAvatars())
 		{
-			float y = avatar.getLocalLocation().y;
-
-			double[] transform = avatar.getPhysicsObject().getTransform();
-
-			if (avatar.getLocalLocation().x < 0)
-			{
-				// --- VISUAL LOCK ---
-				avatar.setLocalRotation(new Matrix4f()
-						.rotateY((float) Math.toRadians(90))
-						.rotateX((float) Math.toRadians(90)));
-				avatar.setLocalTranslation(new Matrix4f().translation(-5f, y, 0f));
-
-				// --- PHYSICS LOCK ---
-				transform[0] = 1; transform[1] = 0; transform[2] = 0;
-				transform[4] = 0; transform[5] = 1; transform[6] = 0;
-				transform[8] = 0; transform[9] = 0; transform[10] = 1;
-
-				transform[12] = -5.0; // X position
-				transform[13] = y;    // Y position
-				transform[14] = 0.0;  // Z position
-
-				avatar.getPhysicsObject().setTransform(transform);
-			}
-			else
-			{
-				// --- VISUAL LOCK ---
-				avatar.setLocalRotation(new Matrix4f()
-						.rotateY((float) Math.toRadians(90))
-						.rotateX((float) Math.toRadians(-90)));
-				avatar.setLocalTranslation(new Matrix4f().translation(5f, y, 0f));
-
-				// --- PHYSICS LOCK ---
-				transform[0] = 1; transform[1] = 0; transform[2] = 0;
-				transform[4] = 0; transform[5] = 1; transform[6] = 0;
-				transform[8] = 0; transform[9] = 0; transform[10] = 1;
-
-				transform[12] = 5.0; // X position
-				transform[13] = y;   // Y position
-				transform[14] = 0.0; // Z position
-
-				avatar.getPhysicsObject().setTransform(transform);
-			}
+			ghost.syncToPhysics(); // ghost ignores physics simulation, just syncs from network
 		}
 	}
+
 
 	// ---------- NETWORKING SECTION ----------------
 
@@ -422,4 +413,11 @@ public class MyGame extends VariableFrameRateGame {
 
 	public void setLeftSide(boolean side) { isLeftSide = side; }
 	public boolean getLeftSide() { return isLeftSide; }
+
+	public void setAvatarOriginalRotation(Matrix4f rotation) {
+		this.avatarOriginalRotation = rotation;
+	}
+	public Matrix4f getAvatarOriginalRotation() {
+		return avatarOriginalRotation;
+	}
 }
