@@ -324,6 +324,7 @@ public class MyGame extends VariableFrameRateGame {
 
 
 	public GameObject getAvatar() { return avatar; }
+	public AnimatedShape getPaddleS() { return paddleS; }
 	public Camera getCamera() { return engine.getRenderSystem().getViewport("MAIN").getCamera(); }
 	public ObjShape getGhostShape() { return ghostShape; }
 	public TextureImage getGhostTexture() { return paddleTexture; }
