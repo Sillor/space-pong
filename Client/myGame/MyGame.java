@@ -1,5 +1,6 @@
 package myGame;
 
+import org.joml.Math;
 import tage.*;
 import tage.input.*;
 import tage.input.action.*;
@@ -10,9 +11,11 @@ import tage.shapes.*;
 import net.java.games.input.Component;
 import org.joml.*;
 
+import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import tage.audio.*;
 
 /**
  * Main game class. Handles initialization, updates, networking, and input.
@@ -28,6 +31,7 @@ public class MyGame extends VariableFrameRateGame {
 	private GameObject avatar;
 	private TextureImage paddleTexture;
 	private ObjShape ghostShape, paddleShape;
+	private AnimatedShape paddleS;
 
 	private boolean isLeftSide = true;
 	private boolean isClientConnected = false;
@@ -44,6 +48,10 @@ public class MyGame extends VariableFrameRateGame {
 	private double startTime;
 
 	private Matrix4f avatarOriginalRotation;
+
+	private Sound bounceSound;
+
+	private PongNPCandBall pong;
 
 	public MyGame(String serverAddress, int serverPort, String protocol) {
 		super();
@@ -63,7 +71,9 @@ public class MyGame extends VariableFrameRateGame {
 	@Override
 	public void loadShapes() {
 		ghostShape = new ImportedModel("paddle.obj");
-		paddleShape = new ImportedModel("paddle.obj");
+//		paddleShape = new ImportedModel("paddle.obj");
+		paddleS = new AnimatedShape("pong.rkm", "pong.rks");
+		paddleS.loadAnimation("Bounce", "bounce.rka");
 	}
 
 	@Override
@@ -82,9 +92,14 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	private void buildAvatar() {
-		avatar = new GameObject(GameObject.root(), paddleShape, paddleTexture);
+		avatar = new GameObject(GameObject.root(), paddleS, paddleTexture);
 		avatar.setLocalScale(new Matrix4f().scaling(0.25f));
-		avatar.setLocalTranslation(new Matrix4f().translation(0f, 1f, 0f));
+		setLockedX(-5f);
+		setLockedZ(-3f);
+		Matrix4f initialRot = new Matrix4f()
+				.rotateY((float) Math.toRadians(90))
+				.rotateX((float) Math.toRadians(90));
+		avatar.setLocalRotation(initialRot);
 
 		Matrix4f avatarTranslation = new Matrix4f(avatar.getLocalTranslation());
 		double[] avatarTransform = toDoubleArray(avatarTranslation.get(matrixValues));
@@ -164,6 +179,7 @@ public class MyGame extends VariableFrameRateGame {
 		startTime = System.currentTimeMillis();
 		engine.getRenderSystem().setWindowDimensions(1900, 1000);
 		engine.enablePhysicsWorldRender();
+		pong = new PongNPCandBall(this);
 
 		physicsEngine = engine.getSceneGraph().getPhysicsEngine();
 		physicsEngine.setGravity(new float[]{0f, -9.8f, 0f});
@@ -171,6 +187,15 @@ public class MyGame extends VariableFrameRateGame {
 		setupNetworking();
 		setupInput();
 		setupCamera();
+		setupSound();
+	}
+
+	private void setupSound() {
+		IAudioManager audioMgr = engine.getAudioManager();
+		AudioResource bounceResource = audioMgr.createAudioResource("bounce.wav", AudioResourceType.AUDIO_SAMPLE);
+		bounceSound = new Sound(bounceResource, SoundType.SOUND_EFFECT, 25, false);
+		bounceSound.initialize(audioMgr);
+
 	}
 
 	private void setupNetworking() {
@@ -192,9 +217,23 @@ public class MyGame extends VariableFrameRateGame {
 		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.UP, new CameraTurnAction(this, new Vector3f(1, 0, 0)), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.DOWN, new CameraTurnAction(this, new Vector3f(-1, 0, 0)), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.ESCAPE, new SendCloseConnectionPacketAction(), InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.HOME, new TestAction(), IInputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
 		inputManager.associateActionWithAllGamepads(Component.Identifier.Button._1, new vAction(this, true), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		inputManager.associateActionWithAllGamepads(Component.Identifier.Axis.X, new TurnAction(this), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+	}
+
+	private class TestAction extends AbstractInputAction {
+		@Override
+		public void performAction(float time, net.java.games.input.Event event) {
+			paddleS.stopAnimation();
+			paddleS.playAnimation("Bounce", 0.25f, AnimatedShape.EndType.PAUSE, 0);
+			if (bounceSound != null) {
+				float randomPitch = 0.9f + (float)(java.lang.Math.random()); // random between 0.9 and 1.1
+				bounceSound.setPitch(randomPitch);
+				bounceSound.play();
+			}
+		}
 	}
 
 	private void setupCamera() {
@@ -203,6 +242,20 @@ public class MyGame extends VariableFrameRateGame {
 		camera.setU(new Vector3f(1, 0, 0));
 		camera.setV(new Vector3f(0, 1, 0));
 		camera.setN(new Vector3f(0, 0, -1));
+
+		Matrix4f pitchDown = new Matrix4f().rotation((float)Math.toRadians(-5), new Vector3f(1, 0, 0));
+
+		Vector3f u = camera.getU();
+		Vector3f v = camera.getV();
+		Vector3f n = camera.getN();
+
+		Vector4f newU = new Vector4f(u, 0).mul(pitchDown);
+		Vector4f newV = new Vector4f(v, 0).mul(pitchDown);
+		Vector4f newN = new Vector4f(n, 0).mul(pitchDown);
+
+		camera.setU(new Vector3f(newU.x, newU.y, newU.z));
+		camera.setV(new Vector3f(newV.x, newV.y, newV.z));
+		camera.setN(new Vector3f(newN.x, newN.y, newN.z));
 	}
 
 	@Override
@@ -228,8 +281,11 @@ public class MyGame extends VariableFrameRateGame {
 			ghost.syncToPhysics();
 		}
 
-		System.out.println("Avatar position: " + avatar.getWorldLocation());
-		System.out.println("Avatar Render enabled: " + avatar.getRenderStates().renderingEnabled());
+		if (pong != null) {
+			pong.update((float)elapsedTime);
+		}
+
+		paddleS.updateAnimation();
 	}
 
 	private void updateHUD() {
@@ -282,7 +338,12 @@ public class MyGame extends VariableFrameRateGame {
 
 
 	public Vector3f getPlayerPosition() { return avatar.getWorldLocation(); }
-	public void setIsConnected(boolean connected) { isClientConnected = connected; }
+	public void setIsConnected(boolean connected) {
+		isClientConnected = connected;
+		if (pong != null) {
+			pong.setIsNPCActive(!connected);
+		}
+	}
 	public void setLeftSide(boolean side) { isLeftSide = side; }
 	public boolean getLeftSide() { return isLeftSide; }
 
