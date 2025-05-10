@@ -9,7 +9,6 @@ import tage.shapes.*;
 public class GameBuilder {
     private final MyGame game;
 
-    private static final float AVATAR_SCALE = 0.1f;
     private static final float TERRAIN_Y_OFFSET = -9f;
     private static final float TERRAIN_SCALE = 60f;
     private static final float GROUND_Y_OFFSET = -4f;
@@ -21,7 +20,6 @@ public class GameBuilder {
     }
 
     public void buildScene() {
-        buildAvatar();
         buildTorus();
         buildAxes();
         buildTerrain();
@@ -29,24 +27,28 @@ public class GameBuilder {
         buildCeilingPlane();
     }
 
-    private void buildAvatar() {
-        GameObject avatar = new GameObject(GameObject.root(), game.getPaddleS(), game.getGhostTexture());
-        avatar.setLocalScale(new Matrix4f().scaling(AVATAR_SCALE));
-        game.setLockedX(-5f);
+    public void buildLocalPlayer(int playerNumber) {
+        boolean left = (playerNumber == 0);
+        game.setLockedX(left ? -5f : 5f);
         game.setLockedZ(-3f);
+        game.setLeftSide(left);
 
-        avatar.setLocalRotation(new Matrix4f()
-                .rotateY((float) Math.toRadians(90))
-                .rotateX((float) Math.toRadians(90)));
+        GameObject avatar = new GameObject(GameObject.root(), game.getPaddleS(), game.getGhostTexture());
+        avatar.setLocalScale(new Matrix4f().scaling(MyGame.PADDLE_SCALE));
+
+        avatar.setLocalRotation(left
+                ? new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(90))
+                : new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(-90)));
 
         PhysicsObject physics = MyGame.getEngine().getSceneGraph().addPhysicsBox(
                 1.0f,
-                Utility.toDoubleArray(avatar.getLocalTranslation().get(new float[16])),
+                Utility.toDoubleArray(new Matrix4f().translation(game.getLockedX(), 0f, game.getLockedZ()).get(new float[16])),
                 new float[]{0.5f, 2.0f, 0.5f}
         );
-        avatar.setPhysicsObject(physics);
 
+        avatar.setPhysicsObject(physics);
         game.setAvatar(avatar);
+        game.setAvatarOriginalRotation(avatar.getLocalRotation());
     }
 
     private void buildTorus() {
@@ -56,9 +58,9 @@ public class GameBuilder {
     }
 
     private void buildAxes() {
-        createAxis(new Vector3f(3, 0, 0), new Vector3f(1, 0, 0)); // X - Red
-        createAxis(new Vector3f(0, 3, 0), new Vector3f(0, 1, 0)); // Y - Green
-        createAxis(new Vector3f(0, 0, -3), new Vector3f(0, 0, 1)); // Z - Blue
+        createAxis(new Vector3f(3, 0, 0), new Vector3f(1, 0, 0));
+        createAxis(new Vector3f(0, 3, 0), new Vector3f(0, 1, 0));
+        createAxis(new Vector3f(0, 0, -3), new Vector3f(0, 0, 1));
     }
 
     private void createAxis(Vector3f end, Vector3f color) {

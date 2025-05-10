@@ -1,1 +1,1 @@
-javac *.java
+javac -Xlint:unchecked myGame/**/*.java

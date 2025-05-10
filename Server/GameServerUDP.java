@@ -175,10 +175,10 @@ public class GameServerUDP extends GameConnectionServer<UUID>
 	public void sendDetailsForMessage(UUID clientID, UUID remoteId, String[] position)
 	{	try
 		{	String message = new String("dsfr," + remoteId.toString());
+			message += "," + getPlayerNumber(clientID);
 			message += "," + position[0];
 			message += "," + position[1];
 			message += "," + position[2];
-			message += "," + getPlayerNumber(clientID);
 			sendPacket(message, clientID);
 		}
 		catch (IOException e)

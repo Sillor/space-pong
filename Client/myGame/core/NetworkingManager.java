@@ -24,6 +24,7 @@ public class NetworkingManager {
                     game
             );
             game.setProtocolClient(protocolClient);
+            game.setMultiplayerMode(true);
             protocolClient.sendJoinMessage();
         } catch (IOException e) {
             e.printStackTrace();

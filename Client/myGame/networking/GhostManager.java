@@ -1,8 +1,7 @@
 package myGame.networking;
 
 import java.io.IOException;
-import java.util.UUID;
-import java.util.Vector;
+import java.util.*;
 
 import myGame.core.MyGame;
 import org.joml.*;
@@ -12,15 +11,19 @@ import tage.physics.*;
 public class GhostManager {
 	private MyGame game;
 	private Vector<GhostAvatar> ghostAvatars = new Vector<>();
+	private Map<UUID, Integer> playerNumbers = new HashMap<>();
 	private float[] vals = new float[16];
 
 	public GhostManager(VariableFrameRateGame vfrg) {
 		game = (MyGame) vfrg;
 	}
 
-	public void createGhostAvatar(UUID id, Vector3f position, boolean leftSide) throws IOException {
+	public void createGhostAvatar(UUID id, Vector3f position, int playerNumber) throws IOException {
 		ObjShape s = game.getGhostShape();
 		TextureImage t = game.getGhostTexture();
+
+		playerNumbers.put(id, playerNumber);
+		boolean leftSide = (playerNumber == 0);
 
 		Vector3f correctedPosition = new Vector3f(position);
 		correctedPosition.x = leftSide ? game.getLockedX() : -game.getLockedX();
@@ -28,10 +31,7 @@ public class GhostManager {
 
 		GhostAvatar newAvatar = new GhostAvatar(id, s, t, correctedPosition, leftSide);
 		newAvatar.setLocalScale(new Matrix4f().scaling(MyGame.PADDLE_SCALE));
-
-		// ✅ Match local player rotation
 		newAvatar.setLocalRotation(game.getAvatarOriginalRotation());
-
 		ghostAvatars.add(newAvatar);
 
 		PhysicsObject ghostPhys = createGhostPhysics(newAvatar);
@@ -58,14 +58,13 @@ public class GhostManager {
 		if (ghostAvatar != null) {
 			game.getEngine().getSceneGraph().removeGameObject(ghostAvatar);
 			ghostAvatars.remove(ghostAvatar);
+			playerNumbers.remove(id);
 		}
 	}
 
 	private GhostAvatar findAvatar(UUID id) {
 		for (GhostAvatar ghostAvatar : ghostAvatars) {
-			if (ghostAvatar.getID().compareTo(id) == 0) {
-				return ghostAvatar;
-			}
+			if (ghostAvatar.getID().compareTo(id) == 0) return ghostAvatar;
 		}
 		return null;
 	}
@@ -79,17 +78,17 @@ public class GhostManager {
 		}
 	}
 
+	public int getPlayerNumber(UUID id) {
+		return playerNumbers.getOrDefault(id, 0);
+	}
+
 	public Vector<GhostAvatar> getGhostAvatars() {
 		return ghostAvatars;
 	}
 
 	private double[] toDoubleArray(float[] arr) {
-		if (arr == null) return null;
-		int n = arr.length;
-		double[] ret = new double[n];
-		for (int i = 0; i < n; i++) {
-			ret[i] = (double) arr[i];
-		}
+		double[] ret = new double[arr.length];
+		for (int i = 0; i < arr.length; i++) ret[i] = arr[i];
 		return ret;
 	}
 }

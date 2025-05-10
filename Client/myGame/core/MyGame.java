@@ -49,6 +49,15 @@ public class MyGame extends VariableFrameRateGame {
 	private float lockedX, lockedZ;
 
 	public static final float PADDLE_SCALE = 0.1f;
+	private boolean isMultiplayerMode = true;
+
+	public void setMultiplayerMode(boolean multiplayer) {
+		isMultiplayerMode = multiplayer;
+	}
+
+	public boolean isMultiplayerMode() {
+		return isMultiplayerMode;
+	}
 
 	public MyGame(String serverAddress, int serverPort, String protocol) {
 		super();
@@ -105,16 +114,21 @@ public class MyGame extends VariableFrameRateGame {
 		engine.getRenderSystem().setWindowDimensions(1900, 1000);
 		engine.enablePhysicsWorldRender();
 
-		ball = new Ball(this);
-		npc = new NPC(this);
-
 		physicsEngine = engine.getSceneGraph().getPhysicsEngine();
 		physicsEngine.setGravity(new float[]{0f, -9.8f, 0f});
+
+		if (!isMultiplayerMode) {
+			new GameBuilder(this).buildLocalPlayer(0);
+			npc = new NPC(this);
+		}
+
+		ball = new Ball(this);
 
 		new NetworkingManager(this).setupNetworking();
 		new InputHandler(this).setupInput();
 		setupCamera();
 		bounceSound = new SoundManager(this).setupSound();
+
 	}
 
 	private void setupCamera() {
@@ -137,7 +151,8 @@ public class MyGame extends VariableFrameRateGame {
 		startTime = currentTime;
 
 		new HUDManager(this).updateHUD();
-		inputManager.update((float) elapsedTime);
+		if (inputManager != null)
+			inputManager.update((float) elapsedTime);
 
 		if (protocolClient != null)
 			protocolClient.processPackets();
@@ -148,15 +163,14 @@ public class MyGame extends VariableFrameRateGame {
 		if (avatar != null && avatar.getPhysicsObject() != null)
 			AvatarPhysicsSynchronizer.syncAvatarPhysics(this);
 
-		// ✅ NEW: lock ghost paddles too
 		ghostManager.getGhostAvatars().forEach(
 				ghost -> AvatarPhysicsSynchronizer.syncGhostPhysics(
 						ghost,
-						ghost.getLeftSide() ? getLockedX() : -getLockedX(),
+						ghostManager.getPlayerNumber(ghost.getID()) == 0 ? getLockedX() : -getLockedX(),
 						getLockedZ())
 		);
 
-		if (protocolClient != null)
+		if (protocolClient != null && avatar != null)
 			protocolClient.sendMoveMessage(avatar.getWorldLocation());
 
 		GameObject opponentPaddle = null;
@@ -197,7 +211,14 @@ public class MyGame extends VariableFrameRateGame {
 	public void setLeftSide(boolean leftSide) { isLeftSide = leftSide; }
 	public boolean isLeftSide() { return isLeftSide; }
 	public Vector3f getPlayerPosition() { return avatar.getWorldLocation(); }
-	public Matrix4f getAvatarOriginalRotation() { return new Matrix4f(avatarOriginalRotation); }
+	public Matrix4f getAvatarOriginalRotation() {
+		if (avatarOriginalRotation == null) {
+			return new Matrix4f()
+					.rotateY((float) Math.toRadians(90))
+					.rotateX((float) Math.toRadians(90));
+		}
+		return new Matrix4f(avatarOriginalRotation);
+	}
 	public void setAvatarOriginalRotation(Matrix4f rotation) { this.avatarOriginalRotation = new Matrix4f(rotation); }
 	public float getLockedX() { return lockedX; }
 	public float getLockedZ() { return lockedZ; }
@@ -226,5 +247,9 @@ public class MyGame extends VariableFrameRateGame {
 				npc = null;
 			}
 		}
+	}
+
+	public GameBuilder getGameBuilder() {
+		return new GameBuilder(this);
 	}
 }
