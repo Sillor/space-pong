@@ -3,7 +3,6 @@ import java.net.InetAddress;
 import java.util.UUID;
 import java.util.Vector;
 
-import myGame.GhostAvatar;
 import tage.networking.server.GameConnectionServer;
 import tage.networking.server.IClientInfo;
 

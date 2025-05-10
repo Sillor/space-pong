@@ -1,15 +1,13 @@
-package myGame;
+package myGame.networking;
 
-import java.awt.Color;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.util.Iterator;
 import java.util.UUID;
-import java.util.Vector;
+
+import myGame.core.MyGame;
 import org.joml.*;
 
 import org.joml.Math;
-import tage.*;
 import tage.networking.client.GameConnectionClient;
 
 public class ProtocolClient extends GameConnectionClient
@@ -19,7 +17,7 @@ public class ProtocolClient extends GameConnectionClient
 	private UUID id;
 	private int playerNumber = -1;
 	
-	public ProtocolClient(InetAddress remoteAddr, int remotePort, ProtocolType protocolType, MyGame game) throws IOException 
+	public ProtocolClient(InetAddress remoteAddr, int remotePort, ProtocolType protocolType, MyGame game) throws IOException
 	{	super(remoteAddr, remotePort, protocolType);
 		this.game = game;
 		this.id = UUID.randomUUID();
@@ -74,8 +72,8 @@ public class ProtocolClient extends GameConnectionClient
 
 				if (remoteId.equals(this.id))  // local player
 				{
-					game.lockedX = pos.x();
-					game.lockedZ = pos.z();
+					game.setLockedX(pos.x());
+					game.setLockedZ(pos.z());
 				}
 
 

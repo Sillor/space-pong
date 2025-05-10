@@ -1,4 +1,4 @@
-package myGame;
+package myGame.networking;
 
 import java.util.UUID;
 

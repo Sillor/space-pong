@@ -1,9 +1,9 @@
-package myGame;
+package myGame.gameplay;
 
+import myGame.core.MyGame;
 import org.joml.*;
 import tage.*;
 import tage.ai.behaviortrees.*;
-import tage.shapes.AnimatedShape;
 
 import java.lang.Math;
 

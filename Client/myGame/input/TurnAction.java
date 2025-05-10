@@ -1,5 +1,6 @@
-package myGame;
+package myGame.input;
 
+import myGame.core.MyGame;
 import tage.*;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
