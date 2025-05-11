@@ -55,30 +55,5 @@ public class GhostAvatar extends GameObject
 			}
 		}
 	}
-
-
-	public void syncToPhysics()
-	{
-		if (physObj != null)
-		{
-			double[] transform = physObj.getTransform();
-			float y = (float) transform[13]; // only Y changes
-
-			if (isLeftSide)
-			{
-				setLocalRotation(new Matrix4f()
-						.rotateY((float) Math.toRadians(90))
-						.rotateX((float) Math.toRadians(90)));
-				setLocalTranslation(new Matrix4f().translation(-5f, y, 0f));
-			}
-			else
-			{
-				setLocalRotation(new Matrix4f()
-						.rotateY((float) Math.toRadians(90))
-						.rotateX((float) Math.toRadians(-90)));
-				setLocalTranslation(new Matrix4f().translation(5f, y, 0f));
-			}
-		}
-	}
 }
 

@@ -23,20 +23,21 @@ import java.lang.Math;
  */
 public class MyGame extends VariableFrameRateGame {
 	private static Engine engine;
+
 	private InputManager inputManager;
 	private GhostManager ghostManager;
 	private ProtocolClient protocolClient;
 	private PhysicsEngine physicsEngine;
 
 	private GameObject avatar;
-	private AnimatedShape paddleS, paddleS_2;
-	private AnimatedShape ghostShape;
+	private AnimatedShape paddleS, paddleS_2, ghostShape;
 	private TextureImage paddleTexture;
 
 	private boolean isLeftSide = true;
 	private boolean isClientConnected = false;
-	private Sound bounceSound;
+	private boolean isMultiplayerMode = true;
 
+	private Sound bounceSound;
 	private Ball ball;
 	private NPC npc;
 
@@ -48,19 +49,11 @@ public class MyGame extends VariableFrameRateGame {
 	private Matrix4f avatarOriginalRotation;
 	private float lockedX, lockedZ;
 
-	public static final float PADDLE_SCALE = 0.1f;
-	private boolean isMultiplayerMode = true;
 	private AnimatedShape ghostMasterShape;
 
-	public void setMultiplayerMode(boolean multiplayer) {
-		isMultiplayerMode = multiplayer;
-	}
+	public static final float PADDLE_SCALE = 0.1f;
 
-	public boolean isMultiplayerMode() {
-		return isMultiplayerMode;
-	}
-
-	public MyGame(String serverAddress, int serverPort, String protocol) {
+	public MyGame(final String serverAddress, final int serverPort, final String protocol) {
 		super();
 		this.serverAddress = serverAddress;
 		this.serverPort = serverPort;
@@ -68,8 +61,8 @@ public class MyGame extends VariableFrameRateGame {
 		this.ghostManager = new GhostManager(this);
 	}
 
-	public static void main(String[] args) {
-		MyGame game = new MyGame(args[0], Integer.parseInt(args[1]), args[2]);
+	public static void main(final String[] args) {
+		final MyGame game = new MyGame(args[0], Integer.parseInt(args[1]), args[2]);
 		engine = new Engine(game);
 		game.initializeSystem();
 		game.game_loop();
@@ -79,6 +72,7 @@ public class MyGame extends VariableFrameRateGame {
 	public void loadShapes() {
 		paddleS = new AnimatedShape("pong.rkm", "pong.rks");
 		paddleS.loadAnimation("Bounce", "bounce.rka");
+
 		paddleS_2 = new AnimatedShape("pong.rkm", "pong.rks");
 		paddleS_2.loadAnimation("Bounce", "bounce.rka");
 	}
@@ -96,14 +90,14 @@ public class MyGame extends VariableFrameRateGame {
 	@Override
 	public void initializeLights() {
 		Light.setGlobalAmbient(0.5f, 0.2f, 0.5f);
-		Light light = new Light();
+		final Light light = new Light();
 		light.setLocation(new Vector3f(0f, 5f, 5f));
 		engine.getSceneGraph().addLight(light);
 	}
 
 	@Override
 	public void loadSkyBoxes() {
-		int skyboxTexture = engine.getSceneGraph().loadCubeMap("space");
+		final int skyboxTexture = engine.getSceneGraph().loadCubeMap("space");
 		engine.getSceneGraph().setActiveSkyBoxTexture(skyboxTexture);
 		engine.getSceneGraph().setSkyBoxEnabled(true);
 	}
@@ -115,7 +109,7 @@ public class MyGame extends VariableFrameRateGame {
 		engine.enablePhysicsWorldRender();
 
 		physicsEngine = engine.getSceneGraph().getPhysicsEngine();
-		physicsEngine.setGravity(new float[]{0f, 0, 0f});
+		physicsEngine.setGravity(new float[]{0f, 0f, 0f});
 
 		if (!isMultiplayerMode) {
 			new GameBuilder(this).buildLocalPlayer(0);
@@ -123,22 +117,21 @@ public class MyGame extends VariableFrameRateGame {
 		}
 
 		ball = new Ball(this);
-
 		new NetworkingManager(this).setupNetworking();
 		new InputHandler(this).setupInput();
+
 		setupCamera();
 		bounceSound = new SoundManager(this).setupSound();
-
 	}
 
 	private void setupCamera() {
-		Camera camera = engine.getRenderSystem().getViewport("MAIN").getCamera();
+		final Camera camera = engine.getRenderSystem().getViewport("MAIN").getCamera();
 		camera.setLocation(new Vector3f(0f, 1f, 6f));
 		camera.setU(new Vector3f(1, 0, 0));
 		camera.setV(new Vector3f(0, 1, 0));
 		camera.setN(new Vector3f(0, 0, -1));
 
-		Matrix4f pitchDown = new Matrix4f().rotation((float) Math.toRadians(-5), new Vector3f(1, 0, 0));
+		final Matrix4f pitchDown = new Matrix4f().rotation((float) Math.toRadians(-5), new Vector3f(1, 0, 0));
 		camera.setU(AvatarPhysicsSynchronizer.transformVector(camera.getU(), pitchDown));
 		camera.setV(AvatarPhysicsSynchronizer.transformVector(camera.getV(), pitchDown));
 		camera.setN(AvatarPhysicsSynchronizer.transformVector(camera.getN(), pitchDown));
@@ -146,47 +139,40 @@ public class MyGame extends VariableFrameRateGame {
 
 	@Override
 	public void update() {
-		double currentTime = System.currentTimeMillis();
-		double elapsedTime = currentTime - startTime;
+		final double currentTime = System.currentTimeMillis();
+		final double elapsedTime = currentTime - startTime;
 		startTime = currentTime;
 
 		new HUDManager(this).updateHUD();
-		if (inputManager != null)
-			inputManager.update((float) elapsedTime);
+		if (inputManager != null) inputManager.update((float) elapsedTime);
+		if (protocolClient != null) protocolClient.processPackets();
+		if (physicsEngine != null) physicsEngine.update((float) elapsedTime);
+		if (avatar != null && avatar.getPhysicsObject() != null) AvatarPhysicsSynchronizer.syncAvatarPhysics(this);
 
-		if (protocolClient != null)
-			protocolClient.processPackets();
-
-		if (physicsEngine != null)
-			physicsEngine.update((float) elapsedTime);
-
-		if (avatar != null && avatar.getPhysicsObject() != null)
-			AvatarPhysicsSynchronizer.syncAvatarPhysics(this);
-
-		ghostManager.getGhostAvatars().forEach(
-				ghost -> AvatarPhysicsSynchronizer.syncGhostPhysics(
+		ghostManager.getGhostAvatars().forEach(ghost ->
+				AvatarPhysicsSynchronizer.syncGhostPhysics(
 						ghost,
 						ghostManager.getPlayerNumber(ghost.getID()) == 0 ? getLockedX() : -getLockedX(),
-						getLockedZ())
-		);
+						getLockedZ()));
 
 		if (protocolClient != null && avatar != null)
 			protocolClient.sendMoveMessage(avatar.getWorldLocation());
 
 		GameObject opponentPaddle = null;
-		if (!isClientConnected() && npc != null)
+		if (!isClientConnected && npc != null) {
 			opponentPaddle = npc.getNPCPaddle();
-		else if (isClientConnected() && !ghostManager.getGhostAvatars().isEmpty())
+		} else if (isClientConnected && !ghostManager.getGhostAvatars().isEmpty()) {
 			opponentPaddle = ghostManager.getGhostAvatars().firstElement();
+		}
 
 		if (ball != null) {
 			ball.update((float) elapsedTime, opponentPaddle, getPlayerPosition());
 
-			if (isClientConnected() && protocolClient != null && protocolClient.getPlayerNumber() == 0)
+			if (isClientConnected && protocolClient != null && protocolClient.getPlayerNumber() == 0)
 				protocolClient.sendBallMessage(ball.getBall().getWorldLocation());
 		}
 
-		if (!isClientConnected() && npc != null)
+		if (!isClientConnected && npc != null)
 			npc.update((float) elapsedTime, ball.getBall());
 
 		paddleS.updateAnimation();
@@ -199,39 +185,40 @@ public class MyGame extends VariableFrameRateGame {
 
 	public static Engine getEngine() { return engine; }
 	public InputManager getInputManager() { return inputManager; }
-	public void setInputManager(InputManager inputManager) { this.inputManager = inputManager; }
+	public void setInputManager(final InputManager inputManager) { this.inputManager = inputManager; }
 	public GhostManager getGhostManager() { return ghostManager; }
 	public ProtocolClient getProtocolClient() { return protocolClient; }
-	public void setProtocolClient(ProtocolClient protocolClient) { this.protocolClient = protocolClient; }
+	public void setProtocolClient(final ProtocolClient protocolClient) { this.protocolClient = protocolClient; }
 	public boolean isClientConnected() { return isClientConnected; }
-	public void setClientConnected(boolean clientConnected) { isClientConnected = clientConnected; }
+	public void setClientConnected(final boolean clientConnected) { isClientConnected = clientConnected; }
 	public GameObject getAvatar() { return avatar; }
-	public void setAvatar(GameObject avatar) { this.avatar = avatar; }
+	public void setAvatar(final GameObject avatar) { this.avatar = avatar; }
 	public AnimatedShape getPaddleS() { return paddleS; }
 	public AnimatedShape getPaddleS_2() { return paddleS_2; }
 	public AnimatedShape getGhostShape() { return ghostShape; }
 	public TextureImage getGhostTexture() { return paddleTexture; }
 	public Sound getBounceSound() { return bounceSound; }
-	public void setLeftSide(boolean leftSide) { isLeftSide = leftSide; }
+	public void setLeftSide(final boolean leftSide) { isLeftSide = leftSide; }
 	public boolean isLeftSide() { return isLeftSide; }
+
 	public Vector3f getPlayerPosition() {
-		if (avatar == null)
-			return new Vector3f(0, 0, 0);
-		return avatar.getWorldLocation();
+		return avatar == null ? new Vector3f(0, 0, 0) : avatar.getWorldLocation();
 	}
+
 	public Matrix4f getAvatarOriginalRotation() {
-		if (avatarOriginalRotation == null) {
-			return new Matrix4f()
-					.rotateY((float) Math.toRadians(90))
-					.rotateX((float) Math.toRadians(90));
-		}
-		return new Matrix4f(avatarOriginalRotation);
+		return avatarOriginalRotation == null ?
+				new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(90)) :
+				new Matrix4f(avatarOriginalRotation);
 	}
-	public void setAvatarOriginalRotation(Matrix4f rotation) { this.avatarOriginalRotation = new Matrix4f(rotation); }
+
+	public void setAvatarOriginalRotation(final Matrix4f rotation) {
+		this.avatarOriginalRotation = new Matrix4f(rotation);
+	}
+
 	public float getLockedX() { return lockedX; }
 	public float getLockedZ() { return lockedZ; }
-	public void setLockedX(float lockedX) { this.lockedX = lockedX; }
-	public void setLockedZ(float lockedZ) { this.lockedZ = lockedZ; }
+	public void setLockedX(final float lockedX) { this.lockedX = lockedX; }
+	public void setLockedZ(final float lockedZ) { this.lockedZ = lockedZ; }
 	public Ball getBall() { return ball; }
 	public String getServerAddress() { return serverAddress; }
 	public int getServerPort() { return serverPort; }
@@ -245,7 +232,7 @@ public class MyGame extends VariableFrameRateGame {
 				.getCamera();
 	}
 
-	public void setIsConnected(boolean connected) {
+	public void setIsConnected(final boolean connected) {
 		this.isClientConnected = connected;
 		if (npc != null) {
 			npc.setIsNPCActive(!connected);
@@ -261,4 +248,6 @@ public class MyGame extends VariableFrameRateGame {
 		return new GameBuilder(this);
 	}
 
+	public void setMultiplayerMode(final boolean multiplayer) { isMultiplayerMode = multiplayer; }
+	public boolean isMultiplayerMode() { return isMultiplayerMode; }
 }

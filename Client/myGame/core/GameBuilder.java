@@ -36,9 +36,11 @@ public class GameBuilder {
         GameObject avatar = new GameObject(GameObject.root(), game.getPaddleS(), game.getGhostTexture());
         avatar.setLocalScale(new Matrix4f().scaling(MyGame.PADDLE_SCALE));
 
-        avatar.setLocalRotation(left
+        float lockedX = game.getLockedX();
+        avatar.setLocalRotation(lockedX < 0
                 ? new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(90))
                 : new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(-90)));
+
 
         PhysicsObject physics = MyGame.getEngine().getSceneGraph().addPhysicsBox(
                 1.0f,

@@ -106,8 +106,8 @@ public class Ball {
             AnimatedShape paddleShape = isPlayer ? game.getPaddleS() : game.getPaddleS_2();
             paddleShape.playAnimation("Bounce", 0.25f, AnimatedShape.EndType.PAUSE, 0);
 
-            // 🔊 LOCAL SOUND always on local player paddle bounce
-            if (isPlayer && game.getBounceSound() != null) {
+            // Always play sound when any paddle (player, opponent, npc) is hit
+            if (game.getBounceSound() != null) {
                 float randomPitch = 0.9f + (float)(Math.random()) * 0.2f;
                 game.getBounceSound().setPitch(randomPitch);
                 game.getBounceSound().play();

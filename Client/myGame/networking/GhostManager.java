@@ -1,6 +1,7 @@
 package myGame.networking;
 
 import java.io.IOException;
+import java.lang.Math;
 import java.util.*;
 
 import myGame.core.MyGame;
@@ -26,16 +27,23 @@ public class GhostManager {
 		TextureImage t = game.getGhostTexture();
 
 		playerNumbers.put(id, playerNumber);
-		boolean leftSide = (playerNumber == 0);
 
+		// set position to locked values
 		Vector3f correctedPosition = new Vector3f(position);
-		correctedPosition.x = leftSide ? -5f : 5f;
+		correctedPosition.x = (playerNumber == 0) ? -5f : 5f;
 		correctedPosition.z = -3f;
 
-
-		GhostAvatar newAvatar = new GhostAvatar(id, s, t, correctedPosition, leftSide);
+		GhostAvatar newAvatar = new GhostAvatar(id, s, t, correctedPosition, false); // no need for leftSide
 		newAvatar.setLocalScale(new Matrix4f().scaling(MyGame.PADDLE_SCALE));
-		newAvatar.setLocalRotation(game.getAvatarOriginalRotation());
+
+		// 🌟 Always rotate based on X position
+		float x = correctedPosition.x;
+		newAvatar.setLocalRotation(
+				x < 0 ?
+						new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(90)) :
+						new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(-90))
+		);
+
 		ghostAvatars.add(newAvatar);
 
 		PhysicsObject ghostPhys = createGhostPhysics(newAvatar);
@@ -76,9 +84,20 @@ public class GhostManager {
 	public void updateGhostAvatar(UUID id, Vector3f position) {
 		GhostAvatar ghostAvatar = findAvatar(id);
 		if (ghostAvatar != null && ghostAvatar.getPhysicsObject() != null) {
+			// update only Y in physics object
 			double[] transform = ghostAvatar.getPhysicsObject().getTransform();
 			transform[13] = position.y;
 			ghostAvatar.getPhysicsObject().setTransform(transform);
+
+			// 🌟 After Y update, also correct rotation based on X
+			Vector3f currentPos = ghostAvatar.getLocalTranslation().getTranslation(new Vector3f());
+			float x = currentPos.x;
+
+			ghostAvatar.setLocalRotation(
+					x < 0 ?
+							new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(90)) :
+							new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(-90))
+			);
 		}
 	}
 
