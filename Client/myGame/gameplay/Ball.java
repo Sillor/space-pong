@@ -108,8 +108,12 @@ public class Ball {
             if (game.getBounceSound() != null) {
                 float randomPitch = 0.9f + (float)(Math.random()) * 0.2f;
                 game.getBounceSound().setPitch(randomPitch);
+
+                game.getBounceSound().setLocation(ball.getLocalTranslation().getTranslation(new Vector3f()));
+
                 game.getBounceSound().play();
             }
+
 
             if (isPlayer && game.getProtocolClient() != null && game.isClientConnected()) {
                 game.getProtocolClient().sendPaddleBounceMessage(game.getProtocolClient().getID());
