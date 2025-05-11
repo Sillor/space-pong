@@ -8,7 +8,6 @@ import tage.shapes.Sphere;
 import tage.shapes.AnimatedShape;
 
 import java.lang.Math;
-import java.util.UUID;
 
 public class Ball {
     private static final float BALL_SPEED = 5f;
@@ -24,37 +23,38 @@ public class Ball {
     private final GameObject ball;
     private final Vector3f ballVelocity = new Vector3f();
 
-    public Ball(MyGame g) {
-        game = g;
-        ball = createBall();
+    public Ball(MyGame game) {
+        this.game = game;
+        this.ball = createBall();
         resetBall();
     }
 
-    public void setPosition(Vector3f pos) {
-        ball.setLocalTranslation(new Matrix4f().translation(pos));
+    public void setPosition(Vector3f position) {
+        ball.setLocalTranslation(new Matrix4f().translation(position));
     }
 
     private GameObject createBall() {
-        GameObject b = new GameObject(GameObject.root(), new Sphere(), null);
-        b.setLocalScale(new Matrix4f().scaling(0.2f));
-        b.setLocalTranslation(new Matrix4f().translation(0f, 0.5f, -3f));
-        return b;
+        GameObject ballObject = new GameObject(GameObject.root(), new Sphere(), null);
+        ballObject.setLocalScale(new Matrix4f().scaling(0.2f));
+        ballObject.setLocalTranslation(new Matrix4f().translation(0f, 0.5f, -3f));
+        return ballObject;
     }
 
     public void update(float elapsedTime, GameObject opponentPaddle, Vector3f playerPosition) {
         float delta = elapsedTime / 1000f;
-        float d = delta;
-        while (d > 0f) {
-            float step = Math.min(MAX_STEP, d);
+        float timeRemaining = delta;
+
+        while (timeRemaining > 0f) {
+            float step = Math.min(MAX_STEP, timeRemaining);
             moveBall(step, opponentPaddle, playerPosition);
-            d -= step;
+            timeRemaining -= step;
         }
     }
 
     private void moveBall(float delta, GameObject opponentPaddle, Vector3f playerPosition) {
-        Vector3f pos = ball.getLocalTranslation().getTranslation(new Vector3f());
-        Vector3f move = new Vector3f(ballVelocity).mul(delta);
-        Vector3f nextPos = new Vector3f(pos).add(move);
+        Vector3f currentPos = ball.getLocalTranslation().getTranslation(new Vector3f());
+        Vector3f movement = new Vector3f(ballVelocity).mul(delta);
+        Vector3f nextPos = new Vector3f(currentPos).add(movement);
 
         boolean playerHit = checkCollision(nextPos, playerPosition, true);
         boolean opponentHit = false;
@@ -106,14 +106,12 @@ public class Ball {
             AnimatedShape paddleShape = isPlayer ? game.getPaddleS() : game.getPaddleS_2();
             paddleShape.playAnimation("Bounce", 0.25f, AnimatedShape.EndType.PAUSE, 0);
 
-            // Always play sound when any paddle (player, opponent, npc) is hit
             if (game.getBounceSound() != null) {
-                float randomPitch = 0.9f + (float)(Math.random()) * 0.2f;
+                float randomPitch = 0.9f + (float) Math.random() * 0.2f;
                 game.getBounceSound().setPitch(randomPitch);
                 game.getBounceSound().play();
             }
 
-            // 🌐 NETWORK ONLY for own paddle
             if (isPlayer && game.getProtocolClient() != null && game.isClientConnected()) {
                 game.getProtocolClient().sendPaddleBounceMessage(game.getProtocolClient().getID());
             }

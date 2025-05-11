@@ -8,7 +8,7 @@ import tage.ai.behaviortrees.*;
 import java.lang.Math;
 
 public class NPC {
-    private static final float NPC_Y_SPEED = 2.5f;
+    private static final float NPC_Y_SPEED = 4f;
 
     private final MyGame game;
     private final GameObject npcPaddle;

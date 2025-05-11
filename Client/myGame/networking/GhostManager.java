@@ -21,82 +21,76 @@ public class GhostManager {
 	}
 
 	public void createGhostAvatar(UUID id, Vector3f position, int playerNumber) throws IOException {
-		AnimatedShape s = game.getPaddleS_2();
-		s.loadAnimation("Bounce", "bounce.rka");
-
-		TextureImage t = game.getGhostTexture();
+		AnimatedShape shape = game.getPaddleS_2();
+		shape.loadAnimation("Bounce", "bounce.rka");
+		TextureImage texture = game.getGhostTexture();
 
 		playerNumbers.put(id, playerNumber);
 
-		// set position to locked values
 		Vector3f correctedPosition = new Vector3f(position);
 		correctedPosition.x = (playerNumber == 0) ? -5f : 5f;
 		correctedPosition.z = -3f;
 
-		GhostAvatar newAvatar = new GhostAvatar(id, s, t, correctedPosition, false); // no need for leftSide
+		GhostAvatar newAvatar = new GhostAvatar(id, shape, texture, correctedPosition, false);
 		newAvatar.setLocalScale(new Matrix4f().scaling(MyGame.PADDLE_SCALE));
 
-		// 🌟 Always rotate based on X position
 		float x = correctedPosition.x;
 		newAvatar.setLocalRotation(
-				x < 0 ?
-						new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(90)) :
-						new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(-90))
+				x < 0
+						? new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(90))
+						: new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(-90))
 		);
 
 		ghostAvatars.add(newAvatar);
 
-		PhysicsObject ghostPhys = createGhostPhysics(newAvatar);
-		newAvatar.setPhysicsObject(ghostPhys);
+		PhysicsObject ghostPhysics = createGhostPhysics(newAvatar);
+		newAvatar.setPhysicsObject(ghostPhysics);
 	}
 
 	private PhysicsObject createGhostPhysics(GhostAvatar ghost) {
-		SceneGraph sg = game.getEngine().getSceneGraph();
-		Matrix4f ghostTrans = new Matrix4f(ghost.getLocalTranslation());
-		double[] ghostTransform = toDoubleArray(ghostTrans.get(vals));
+		SceneGraph sceneGraph = game.getEngine().getSceneGraph();
+		Matrix4f ghostTransform = new Matrix4f(ghost.getLocalTranslation());
+		double[] transformArray = toDoubleArray(ghostTransform.get(vals));
 
 		float mass = 0.0f;
 		float[] halfExtents = {0.5f, 2f, 0.5f};
 
-		PhysicsObject physObj = sg.addPhysicsBox(mass, ghostTransform, halfExtents);
-		physObj.setBounciness(0.5f);
-		physObj.setFriction(0.8f);
+		PhysicsObject physicsObject = sceneGraph.addPhysicsBox(mass, transformArray, halfExtents);
+		physicsObject.setBounciness(0.5f);
+		physicsObject.setFriction(0.8f);
 
-		return physObj;
+		return physicsObject;
 	}
 
 	public void removeGhostAvatar(UUID id) {
-		GhostAvatar ghostAvatar = findAvatar(id);
-		if (ghostAvatar != null) {
-			game.getEngine().getSceneGraph().removeGameObject(ghostAvatar);
-			ghostAvatars.remove(ghostAvatar);
+		GhostAvatar ghost = findAvatar(id);
+		if (ghost != null) {
+			game.getEngine().getSceneGraph().removeGameObject(ghost);
+			ghostAvatars.remove(ghost);
 			playerNumbers.remove(id);
 		}
 	}
 
 	public GhostAvatar findAvatar(UUID id) {
-		for (GhostAvatar ghostAvatar : ghostAvatars) {
-			if (ghostAvatar.getID().compareTo(id) == 0) return ghostAvatar;
+		for (GhostAvatar avatar : ghostAvatars) {
+			if (avatar.getID().equals(id)) return avatar;
 		}
 		return null;
 	}
 
 	public void updateGhostAvatar(UUID id, Vector3f position) {
-		GhostAvatar ghostAvatar = findAvatar(id);
-		if (ghostAvatar != null && ghostAvatar.getPhysicsObject() != null) {
-			// update only Y in physics object
-			double[] transform = ghostAvatar.getPhysicsObject().getTransform();
+		GhostAvatar ghost = findAvatar(id);
+		if (ghost != null && ghost.getPhysicsObject() != null) {
+			double[] transform = ghost.getPhysicsObject().getTransform();
 			transform[13] = position.y;
-			ghostAvatar.getPhysicsObject().setTransform(transform);
+			ghost.getPhysicsObject().setTransform(transform);
 
-			// 🌟 After Y update, also correct rotation based on X
-			Vector3f currentPos = ghostAvatar.getLocalTranslation().getTranslation(new Vector3f());
+			Vector3f currentPos = ghost.getLocalTranslation().getTranslation(new Vector3f());
 			float x = currentPos.x;
-
-			ghostAvatar.setLocalRotation(
-					x < 0 ?
-							new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(90)) :
-							new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(-90))
+			ghost.setLocalRotation(
+					x < 0
+							? new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(90))
+							: new Matrix4f().rotateY((float) Math.toRadians(90)).rotateX((float) Math.toRadians(-90))
 			);
 		}
 	}
@@ -109,9 +103,11 @@ public class GhostManager {
 		return ghostAvatars;
 	}
 
-	private double[] toDoubleArray(float[] arr) {
-		double[] ret = new double[arr.length];
-		for (int i = 0; i < arr.length; i++) ret[i] = arr[i];
-		return ret;
+	private double[] toDoubleArray(float[] array) {
+		double[] result = new double[array.length];
+		for (int i = 0; i < array.length; i++) {
+			result[i] = array[i];
+		}
+		return result;
 	}
 }

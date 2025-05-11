@@ -1,12 +1,12 @@
 package myGame.networking;
 
 import java.io.IOException;
+import java.lang.Math;
 import java.net.InetAddress;
 import java.util.UUID;
 
 import myGame.core.MyGame;
 import org.joml.*;
-import org.joml.Math;
 import tage.networking.client.GameConnectionClient;
 import tage.shapes.AnimatedShape;
 
@@ -14,36 +14,41 @@ public class ProtocolClient extends GameConnectionClient {
 	private MyGame game;
 	private GhostManager ghostManager;
 	private UUID id;
-
-	private UUID localPlayerId = id;   // set local player ID
-
-	public UUID getLocalPlayerId() {
-		return localPlayerId;
-	}
-
+	private UUID localPlayerId;
 	private int playerNumber = -1;
+
+	private float[] vals = new float[16];
 
 	public ProtocolClient(InetAddress remoteAddr, int remotePort, ProtocolType protocolType, MyGame game) throws IOException {
 		super(remoteAddr, remotePort, protocolType);
 		this.game = game;
 		this.id = UUID.randomUUID();
-		ghostManager = game.getGhostManager();
+		this.localPlayerId = this.id;
+		this.ghostManager = game.getGhostManager();
 	}
 
 	public UUID getID() {
 		return id;
 	}
 
+	public UUID getLocalPlayerId() {
+		return localPlayerId;
+	}
+
+	public int getPlayerNumber() {
+		return playerNumber;
+	}
+
 	@Override
 	protected void processPacket(Object message) {
 		if (message == null) return;
 		String strMessage = (String) message;
-		String[] messageTokens = strMessage.split(",");
+		String[] tokens = strMessage.split(",");
 
-		if (messageTokens.length > 0) {
-			switch (messageTokens[0]) {
+		if (tokens.length > 0) {
+			switch (tokens[0]) {
 				case "join":
-					if (messageTokens[1].equals("success")) {
+					if (tokens[1].equals("success")) {
 						game.setIsConnected(true);
 						sendCreateMessage();
 					} else {
@@ -52,34 +57,30 @@ public class ProtocolClient extends GameConnectionClient {
 					break;
 
 				case "assignNumber":
-					playerNumber = Integer.parseInt(messageTokens[1]);
+					playerNumber = Integer.parseInt(tokens[1]);
 					System.out.println("[Client] Assigned player number = " + playerNumber);
 					break;
 
 				case "bye":
-					ghostManager.removeGhostAvatar(UUID.fromString(messageTokens[1]));
+					ghostManager.removeGhostAvatar(UUID.fromString(tokens[1]));
 					break;
 
 				case "create":
-					System.out.println("Assigned player number: " + playerNumber);
-					UUID remoteId = UUID.fromString(messageTokens[1]);
+					UUID remoteId = UUID.fromString(tokens[1]);
 					Vector3f pos = new Vector3f(
-							Float.parseFloat(messageTokens[2]),
-							Float.parseFloat(messageTokens[3]),
-							Float.parseFloat(messageTokens[4])
+							Float.parseFloat(tokens[2]),
+							Float.parseFloat(tokens[3]),
+							Float.parseFloat(tokens[4])
 					);
-					int number = Integer.parseInt(messageTokens[5]);
+					int number = Integer.parseInt(tokens[5]);
 
 					if (remoteId.equals(this.id)) {
-						// ✅ Local player: assign side, lock positions
 						boolean left = (number == 0);
 						game.setLockedX(left ? -5f : 5f);
 						game.setLockedZ(-3f);
 						game.setLeftSide(left);
-
 						game.getGameBuilder().buildLocalPlayer(number);
 					} else {
-						// ghost player
 						try {
 							ghostManager.createGhostAvatar(remoteId, pos, number);
 						} catch (IOException e) {
@@ -89,13 +90,13 @@ public class ProtocolClient extends GameConnectionClient {
 					break;
 
 				case "dsfr":
-					UUID remoteIdDsfr = UUID.fromString(messageTokens[1]);
+					UUID remoteIdDsfr = UUID.fromString(tokens[1]);
 					if (!remoteIdDsfr.equals(this.id)) {
-						int remotePlayerNumber = Integer.parseInt(messageTokens[2]);          // ✅ from server now
+						int remotePlayerNumber = Integer.parseInt(tokens[2]);
 						Vector3f posDsfr = new Vector3f(
-								Float.parseFloat(messageTokens[3]),
-								Float.parseFloat(messageTokens[4]),
-								Float.parseFloat(messageTokens[5])
+								Float.parseFloat(tokens[3]),
+								Float.parseFloat(tokens[4]),
+								Float.parseFloat(tokens[5])
 						);
 						try {
 							ghostManager.createGhostAvatar(remoteIdDsfr, posDsfr, remotePlayerNumber);
@@ -106,50 +107,44 @@ public class ProtocolClient extends GameConnectionClient {
 					break;
 
 				case "bounce":
-					UUID bounceId = UUID.fromString(messageTokens[1]);
+					UUID bounceId = UUID.fromString(tokens[1]);
 					if (bounceId.equals(this.id)) {
 						game.getPaddleS().playAnimation("Bounce", 0.25f, AnimatedShape.EndType.PAUSE, 0);
-
 						if (game.getBounceSound() != null) {
-							float randomPitch = 0.9f + (float)(Math.random()) * 0.2f;
-							game.getBounceSound().setPitch(randomPitch);
+							float pitch = 0.9f + (float) Math.random() * 0.2f;
+							game.getBounceSound().setPitch(pitch);
 							game.getBounceSound().play();
 						}
 					} else {
 						GhostAvatar ghost = ghostManager.findAvatar(bounceId);
-						if (ghost != null)
-							ghost.playBounceAnimation();
+						if (ghost != null) ghost.playBounceAnimation();
 					}
 					break;
 
-
-
-
 				case "playerNumber":
-					playerNumber = Integer.parseInt(messageTokens[1]);
+					playerNumber = Integer.parseInt(tokens[1]);
 					break;
 
 				case "wsds":
-					sendDetailsForMessage(UUID.fromString(messageTokens[1]), game.getPlayerPosition());
+					sendDetailsForMessage(UUID.fromString(tokens[1]), game.getPlayerPosition());
 					break;
 
 				case "move":
 					ghostManager.updateGhostAvatar(
-							UUID.fromString(messageTokens[1]),
+							UUID.fromString(tokens[1]),
 							new Vector3f(
-									Float.parseFloat(messageTokens[2]),
-									Float.parseFloat(messageTokens[3]),
-									Float.parseFloat(messageTokens[4])
+									Float.parseFloat(tokens[2]),
+									Float.parseFloat(tokens[3]),
+									Float.parseFloat(tokens[4])
 							)
 					);
 					break;
 
 				case "ball":
-					UUID senderId = UUID.fromString(messageTokens[1]);
 					Vector3f ballPos = new Vector3f(
-							Float.parseFloat(messageTokens[2]),
-							Float.parseFloat(messageTokens[3]),
-							Float.parseFloat(messageTokens[4])
+							Float.parseFloat(tokens[2]),
+							Float.parseFloat(tokens[3]),
+							Float.parseFloat(tokens[4])
 					);
 					game.getBall().setPosition(ballPos);
 					break;
@@ -168,8 +163,7 @@ public class ProtocolClient extends GameConnectionClient {
 	public void sendBallMessage(Vector3f ballPosition) {
 		try {
 			sendPacket(String.format("ball,%s,%.3f,%.3f,%.3f",
-					id.toString(),
-					ballPosition.x(), ballPosition.y(), ballPosition.z()));
+					id.toString(), ballPosition.x(), ballPosition.y(), ballPosition.z()));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -193,7 +187,8 @@ public class ProtocolClient extends GameConnectionClient {
 
 	public void sendDetailsForMessage(UUID remoteId, Vector3f position) {
 		try {
-			sendPacket(String.format("dsfr,%s,%s,%.3f,%.3f,%.3f", remoteId, id, position.x(), position.y(), position.z()));
+			sendPacket(String.format("dsfr,%s,%s,%.3f,%.3f,%.3f",
+					remoteId, id, position.x(), position.y(), position.z()));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -201,7 +196,7 @@ public class ProtocolClient extends GameConnectionClient {
 
 	public void sendPaddleBounceMessage(UUID paddleOwnerId) {
 		try {
-			sendPacket("bounce," + paddleOwnerId.toString());
+			sendPacket("bounce," + paddleOwnerId);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -209,21 +204,16 @@ public class ProtocolClient extends GameConnectionClient {
 
 	public void sendMoveMessage(Vector3f position) {
 		try {
-			sendPacket(String.format("move,%s,%.3f,%.3f,%.3f", id, position.x(), position.y(), position.z()));
+			sendPacket(String.format("move,%s,%.3f,%.3f,%.3f",
+					id, position.x(), position.y(), position.z()));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 
 	private double[] toDoubleArray(float[] arr) {
-		double[] ret = new double[arr.length];
-		for (int i = 0; i < arr.length; i++) ret[i] = arr[i];
-		return ret;
-	}
-
-	private float[] vals = new float[16];
-
-	public int getPlayerNumber() {
-		return playerNumber;
+		double[] result = new double[arr.length];
+		for (int i = 0; i < arr.length; i++) result[i] = arr[i];
+		return result;
 	}
 }

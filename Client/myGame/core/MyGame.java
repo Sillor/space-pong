@@ -12,15 +12,10 @@ import tage.audio.Sound;
 import tage.input.*;
 import tage.networking.IGameConnection.ProtocolType;
 import tage.physics.*;
-
 import tage.shapes.AnimatedShape;
-import tage.shapes.ImportedModel;
 
 import java.lang.Math;
 
-/**
- * Main game class. Orchestrates setup and updates.
- */
 public class MyGame extends VariableFrameRateGame {
 	private static Engine engine;
 
@@ -48,8 +43,6 @@ public class MyGame extends VariableFrameRateGame {
 	private double startTime;
 	private Matrix4f avatarOriginalRotation;
 	private float lockedX, lockedZ;
-
-	private AnimatedShape ghostMasterShape;
 
 	public static final float PADDLE_SCALE = 0.1f;
 
@@ -90,14 +83,14 @@ public class MyGame extends VariableFrameRateGame {
 	@Override
 	public void initializeLights() {
 		Light.setGlobalAmbient(0.5f, 0.2f, 0.5f);
-		final Light light = new Light();
+		Light light = new Light();
 		light.setLocation(new Vector3f(0f, 5f, 5f));
 		engine.getSceneGraph().addLight(light);
 	}
 
 	@Override
 	public void loadSkyBoxes() {
-		final int skyboxTexture = engine.getSceneGraph().loadCubeMap("space");
+		int skyboxTexture = engine.getSceneGraph().loadCubeMap("space");
 		engine.getSceneGraph().setActiveSkyBoxTexture(skyboxTexture);
 		engine.getSceneGraph().setSkyBoxEnabled(true);
 	}
@@ -119,19 +112,18 @@ public class MyGame extends VariableFrameRateGame {
 		ball = new Ball(this);
 		new NetworkingManager(this).setupNetworking();
 		new InputHandler(this).setupInput();
-
 		setupCamera();
 		bounceSound = new SoundManager(this).setupSound();
 	}
 
 	private void setupCamera() {
-		final Camera camera = engine.getRenderSystem().getViewport("MAIN").getCamera();
+		Camera camera = engine.getRenderSystem().getViewport("MAIN").getCamera();
 		camera.setLocation(new Vector3f(0f, 1f, 6f));
 		camera.setU(new Vector3f(1, 0, 0));
 		camera.setV(new Vector3f(0, 1, 0));
 		camera.setN(new Vector3f(0, 0, -1));
 
-		final Matrix4f pitchDown = new Matrix4f().rotation((float) Math.toRadians(-5), new Vector3f(1, 0, 0));
+		Matrix4f pitchDown = new Matrix4f().rotation((float) Math.toRadians(-5), new Vector3f(1, 0, 0));
 		camera.setU(AvatarPhysicsSynchronizer.transformVector(camera.getU(), pitchDown));
 		camera.setV(AvatarPhysicsSynchronizer.transformVector(camera.getV(), pitchDown));
 		camera.setN(AvatarPhysicsSynchronizer.transformVector(camera.getN(), pitchDown));
@@ -139,21 +131,24 @@ public class MyGame extends VariableFrameRateGame {
 
 	@Override
 	public void update() {
-		final double currentTime = System.currentTimeMillis();
-		final double elapsedTime = currentTime - startTime;
+		double currentTime = System.currentTimeMillis();
+		double elapsedTime = currentTime - startTime;
 		startTime = currentTime;
 
 		new HUDManager(this).updateHUD();
 		if (inputManager != null) inputManager.update((float) elapsedTime);
 		if (protocolClient != null) protocolClient.processPackets();
 		if (physicsEngine != null) physicsEngine.update((float) elapsedTime);
-		if (avatar != null && avatar.getPhysicsObject() != null) AvatarPhysicsSynchronizer.syncAvatarPhysics(this);
+		if (avatar != null && avatar.getPhysicsObject() != null)
+			AvatarPhysicsSynchronizer.syncAvatarPhysics(this);
 
 		ghostManager.getGhostAvatars().forEach(ghost ->
 				AvatarPhysicsSynchronizer.syncGhostPhysics(
 						ghost,
 						ghostManager.getPlayerNumber(ghost.getID()) == 0 ? getLockedX() : -getLockedX(),
-						getLockedZ()));
+						getLockedZ()
+				)
+		);
 
 		if (protocolClient != null && avatar != null)
 			protocolClient.sendMoveMessage(avatar.getWorldLocation());
@@ -167,7 +162,6 @@ public class MyGame extends VariableFrameRateGame {
 
 		if (ball != null) {
 			ball.update((float) elapsedTime, opponentPaddle, getPlayerPosition());
-
 			if (isClientConnected && protocolClient != null && protocolClient.getPlayerNumber() == 0)
 				protocolClient.sendBallMessage(ball.getBall().getWorldLocation());
 		}
@@ -179,26 +173,22 @@ public class MyGame extends VariableFrameRateGame {
 		paddleS_2.updateAnimation();
 	}
 
-	// ------------------------
-	// Getters & Setters
-	// ------------------------
-
 	public static Engine getEngine() { return engine; }
 	public InputManager getInputManager() { return inputManager; }
-	public void setInputManager(final InputManager inputManager) { this.inputManager = inputManager; }
+	public void setInputManager(InputManager inputManager) { this.inputManager = inputManager; }
 	public GhostManager getGhostManager() { return ghostManager; }
 	public ProtocolClient getProtocolClient() { return protocolClient; }
-	public void setProtocolClient(final ProtocolClient protocolClient) { this.protocolClient = protocolClient; }
+	public void setProtocolClient(ProtocolClient protocolClient) { this.protocolClient = protocolClient; }
 	public boolean isClientConnected() { return isClientConnected; }
-	public void setClientConnected(final boolean clientConnected) { isClientConnected = clientConnected; }
+	public void setClientConnected(boolean clientConnected) { isClientConnected = clientConnected; }
 	public GameObject getAvatar() { return avatar; }
-	public void setAvatar(final GameObject avatar) { this.avatar = avatar; }
+	public void setAvatar(GameObject avatar) { this.avatar = avatar; }
 	public AnimatedShape getPaddleS() { return paddleS; }
 	public AnimatedShape getPaddleS_2() { return paddleS_2; }
 	public AnimatedShape getGhostShape() { return ghostShape; }
 	public TextureImage getGhostTexture() { return paddleTexture; }
 	public Sound getBounceSound() { return bounceSound; }
-	public void setLeftSide(final boolean leftSide) { isLeftSide = leftSide; }
+	public void setLeftSide(boolean leftSide) { isLeftSide = leftSide; }
 	public boolean isLeftSide() { return isLeftSide; }
 
 	public Vector3f getPlayerPosition() {
@@ -211,14 +201,14 @@ public class MyGame extends VariableFrameRateGame {
 				new Matrix4f(avatarOriginalRotation);
 	}
 
-	public void setAvatarOriginalRotation(final Matrix4f rotation) {
+	public void setAvatarOriginalRotation(Matrix4f rotation) {
 		this.avatarOriginalRotation = new Matrix4f(rotation);
 	}
 
 	public float getLockedX() { return lockedX; }
 	public float getLockedZ() { return lockedZ; }
-	public void setLockedX(final float lockedX) { this.lockedX = lockedX; }
-	public void setLockedZ(final float lockedZ) { this.lockedZ = lockedZ; }
+	public void setLockedX(float lockedX) { this.lockedX = lockedX; }
+	public void setLockedZ(float lockedZ) { this.lockedZ = lockedZ; }
 	public Ball getBall() { return ball; }
 	public String getServerAddress() { return serverAddress; }
 	public int getServerPort() { return serverPort; }
@@ -232,11 +222,10 @@ public class MyGame extends VariableFrameRateGame {
 				.getCamera();
 	}
 
-	public void setIsConnected(final boolean connected) {
+	public void setIsConnected(boolean connected) {
 		this.isClientConnected = connected;
 		if (npc != null) {
 			npc.setIsNPCActive(!connected);
-
 			if (connected) {
 				engine.getSceneGraph().removeGameObject(npc.getNPCPaddle());
 				npc = null;
@@ -248,6 +237,6 @@ public class MyGame extends VariableFrameRateGame {
 		return new GameBuilder(this);
 	}
 
-	public void setMultiplayerMode(final boolean multiplayer) { isMultiplayerMode = multiplayer; }
+	public void setMultiplayerMode(boolean multiplayer) { isMultiplayerMode = multiplayer; }
 	public boolean isMultiplayerMode() { return isMultiplayerMode; }
 }
