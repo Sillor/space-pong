@@ -56,6 +56,13 @@ public class GameServerUDP extends GameConnectionServer<UUID>
 				} catch (IOException e) { e.printStackTrace(); }
 			}
 
+			if (messageTokens[0].equals("bounce")) {
+				try {
+					UUID clientID = UUID.fromString(messageTokens[1]);
+					forwardPacketToAll(message, clientID);
+				} catch (IOException e) { e.printStackTrace(); }
+			}
+
 			if(messageTokens[0].equals("create")) {
 				UUID clientID = UUID.fromString(messageTokens[1]);
 				String[] pos = new String[3];

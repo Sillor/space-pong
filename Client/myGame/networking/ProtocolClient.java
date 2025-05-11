@@ -8,6 +8,7 @@ import myGame.core.MyGame;
 import org.joml.*;
 import org.joml.Math;
 import tage.networking.client.GameConnectionClient;
+import tage.shapes.AnimatedShape;
 
 public class ProtocolClient extends GameConnectionClient {
 	private MyGame game;
@@ -104,6 +105,26 @@ public class ProtocolClient extends GameConnectionClient {
 					}
 					break;
 
+				case "bounce":
+					UUID bounceId = UUID.fromString(messageTokens[1]);
+					if (bounceId.equals(this.id)) {
+						game.getPaddleS().playAnimation("Bounce", 0.25f, AnimatedShape.EndType.PAUSE, 0);
+
+						if (game.getBounceSound() != null) {
+							float randomPitch = 0.9f + (float)(Math.random()) * 0.2f;
+							game.getBounceSound().setPitch(randomPitch);
+							game.getBounceSound().play();
+						}
+					} else {
+						GhostAvatar ghost = ghostManager.findAvatar(bounceId);
+						if (ghost != null)
+							ghost.playBounceAnimation();
+					}
+					break;
+
+
+
+
 				case "playerNumber":
 					playerNumber = Integer.parseInt(messageTokens[1]);
 					break;
@@ -173,6 +194,14 @@ public class ProtocolClient extends GameConnectionClient {
 	public void sendDetailsForMessage(UUID remoteId, Vector3f position) {
 		try {
 			sendPacket(String.format("dsfr,%s,%s,%.3f,%.3f,%.3f", remoteId, id, position.x(), position.y(), position.z()));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendPaddleBounceMessage(UUID paddleOwnerId) {
+		try {
+			sendPacket("bounce," + paddleOwnerId.toString());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

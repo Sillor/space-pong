@@ -29,8 +29,9 @@ public class GhostManager {
 		boolean leftSide = (playerNumber == 0);
 
 		Vector3f correctedPosition = new Vector3f(position);
-		correctedPosition.x = leftSide ? game.getLockedX() : -game.getLockedX();
-		correctedPosition.z = game.getLockedZ();
+		correctedPosition.x = leftSide ? -5f : 5f;
+		correctedPosition.z = -3f;
+
 
 		GhostAvatar newAvatar = new GhostAvatar(id, s, t, correctedPosition, leftSide);
 		newAvatar.setLocalScale(new Matrix4f().scaling(MyGame.PADDLE_SCALE));
@@ -65,7 +66,7 @@ public class GhostManager {
 		}
 	}
 
-	private GhostAvatar findAvatar(UUID id) {
+	public GhostAvatar findAvatar(UUID id) {
 		for (GhostAvatar ghostAvatar : ghostAvatars) {
 			if (ghostAvatar.getID().compareTo(id) == 0) return ghostAvatar;
 		}

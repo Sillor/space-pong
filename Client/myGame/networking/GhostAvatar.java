@@ -2,9 +2,11 @@ package myGame.networking;
 
 import java.util.UUID;
 
+import myGame.core.MyGame;
 import org.joml.Math;
 import tage.*;
 import org.joml.*;
+import tage.audio.Sound;
 import tage.physics.PhysicsObject;
 import tage.shapes.AnimatedShape;
 
@@ -41,8 +43,19 @@ public class GhostAvatar extends GameObject
 	public void playBounceAnimation() {
 		if (animatedShape != null) {
 			animatedShape.playAnimation("Bounce", 0.25f, AnimatedShape.EndType.PAUSE, 0);
+
+			if (MyGame.getEngine() != null) {
+				MyGame game = (MyGame) MyGame.getEngine().getGame();
+				Sound bounce = game.getBounceSound();
+				if (bounce != null) {
+					float randomPitch = 0.9f + (float)(Math.random()) * 0.2f;
+					bounce.setPitch(randomPitch);
+					bounce.play();
+				}
+			}
 		}
 	}
+
 
 	public void syncToPhysics()
 	{

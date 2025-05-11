@@ -8,6 +8,7 @@ import tage.shapes.Sphere;
 import tage.shapes.AnimatedShape;
 
 import java.lang.Math;
+import java.util.UUID;
 
 public class Ball {
     private static final float BALL_SPEED = 5f;
@@ -105,10 +106,16 @@ public class Ball {
             AnimatedShape paddleShape = isPlayer ? game.getPaddleS() : game.getPaddleS_2();
             paddleShape.playAnimation("Bounce", 0.25f, AnimatedShape.EndType.PAUSE, 0);
 
-            if (game.getBounceSound() != null) {
+            // 🔊 LOCAL SOUND always on local player paddle bounce
+            if (isPlayer && game.getBounceSound() != null) {
                 float randomPitch = 0.9f + (float)(Math.random()) * 0.2f;
                 game.getBounceSound().setPitch(randomPitch);
                 game.getBounceSound().play();
+            }
+
+            // 🌐 NETWORK ONLY for own paddle
+            if (isPlayer && game.getProtocolClient() != null && game.isClientConnected()) {
+                game.getProtocolClient().sendPaddleBounceMessage(game.getProtocolClient().getID());
             }
 
             return true;

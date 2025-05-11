@@ -180,12 +180,10 @@ public class MyGame extends VariableFrameRateGame {
 			opponentPaddle = ghostManager.getGhostAvatars().firstElement();
 
 		if (ball != null) {
-			if (!isClientConnected() || protocolClient == null || protocolClient.getPlayerNumber() == 0) {
-				ball.update((float) elapsedTime, opponentPaddle, getPlayerPosition());
+			ball.update((float) elapsedTime, opponentPaddle, getPlayerPosition());
 
-				if (isClientConnected())
-					protocolClient.sendBallMessage(ball.getBall().getWorldLocation());
-			}
+			if (isClientConnected() && protocolClient != null && protocolClient.getPlayerNumber() == 0)
+				protocolClient.sendBallMessage(ball.getBall().getWorldLocation());
 		}
 
 		if (!isClientConnected() && npc != null)
