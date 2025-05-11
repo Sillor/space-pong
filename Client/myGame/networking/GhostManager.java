@@ -7,6 +7,7 @@ import myGame.core.MyGame;
 import org.joml.*;
 import tage.*;
 import tage.physics.*;
+import tage.shapes.AnimatedShape;
 
 public class GhostManager {
 	private MyGame game;
@@ -19,7 +20,9 @@ public class GhostManager {
 	}
 
 	public void createGhostAvatar(UUID id, Vector3f position, int playerNumber) throws IOException {
-		ObjShape s = game.getGhostShape();
+		AnimatedShape s = game.getPaddleS_2();
+		s.loadAnimation("Bounce", "bounce.rka");
+
 		TextureImage t = game.getGhostTexture();
 
 		playerNumbers.put(id, playerNumber);

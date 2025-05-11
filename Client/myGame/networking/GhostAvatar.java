@@ -6,6 +6,7 @@ import org.joml.Math;
 import tage.*;
 import org.joml.*;
 import tage.physics.PhysicsObject;
+import tage.shapes.AnimatedShape;
 
 // A ghost MUST be connected as a child of the root,
 // so that it will be rendered, and for future removal.
@@ -18,10 +19,11 @@ public class GhostAvatar extends GameObject
 	private UUID uuid;
 	private boolean isLeftSide = true; // which side the ghost belongs
 	private PhysicsObject physObj;
+	private final AnimatedShape animatedShape;
 
-	public GhostAvatar(UUID id, ObjShape s, TextureImage t, Vector3f pos, boolean left)
-	{
+	public GhostAvatar(UUID id, AnimatedShape s, TextureImage t, Vector3f pos, boolean left) {
 		super(GameObject.root(), s, t);
+		this.animatedShape = s;
 		uuid = id;
 		isLeftSide = left;
 		setPosition(pos);
@@ -35,6 +37,12 @@ public class GhostAvatar extends GameObject
 
 	public void setPhysicsObject(PhysicsObject obj) { physObj = obj; }
 	public PhysicsObject getPhysicsObject() { return physObj; }
+
+	public void playBounceAnimation() {
+		if (animatedShape != null) {
+			animatedShape.playAnimation("Bounce", 0.25f, AnimatedShape.EndType.PAUSE, 0);
+		}
+	}
 
 	public void syncToPhysics()
 	{
@@ -59,6 +67,5 @@ public class GhostAvatar extends GameObject
 			}
 		}
 	}
-
 }
 

@@ -13,6 +13,13 @@ public class ProtocolClient extends GameConnectionClient {
 	private MyGame game;
 	private GhostManager ghostManager;
 	private UUID id;
+
+	private UUID localPlayerId = id;   // set local player ID
+
+	public UUID getLocalPlayerId() {
+		return localPlayerId;
+	}
+
 	private int playerNumber = -1;
 
 	public ProtocolClient(InetAddress remoteAddr, int remotePort, ProtocolType protocolType, MyGame game) throws IOException {
@@ -43,11 +50,17 @@ public class ProtocolClient extends GameConnectionClient {
 					}
 					break;
 
+				case "assignNumber":
+					playerNumber = Integer.parseInt(messageTokens[1]);
+					System.out.println("[Client] Assigned player number = " + playerNumber);
+					break;
+
 				case "bye":
 					ghostManager.removeGhostAvatar(UUID.fromString(messageTokens[1]));
 					break;
 
 				case "create":
+					System.out.println("Assigned player number: " + playerNumber);
 					UUID remoteId = UUID.fromString(messageTokens[1]);
 					Vector3f pos = new Vector3f(
 							Float.parseFloat(messageTokens[2]),
@@ -109,6 +122,16 @@ public class ProtocolClient extends GameConnectionClient {
 							)
 					);
 					break;
+
+				case "ball":
+					UUID senderId = UUID.fromString(messageTokens[1]);
+					Vector3f ballPos = new Vector3f(
+							Float.parseFloat(messageTokens[2]),
+							Float.parseFloat(messageTokens[3]),
+							Float.parseFloat(messageTokens[4])
+					);
+					game.getBall().setPosition(ballPos);
+					break;
 			}
 		}
 	}
@@ -116,6 +139,16 @@ public class ProtocolClient extends GameConnectionClient {
 	public void sendJoinMessage() {
 		try {
 			sendPacket("join," + id);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendBallMessage(Vector3f ballPosition) {
+		try {
+			sendPacket(String.format("ball,%s,%.3f,%.3f,%.3f",
+					id.toString(),
+					ballPosition.x(), ballPosition.y(), ballPosition.z()));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -160,4 +193,8 @@ public class ProtocolClient extends GameConnectionClient {
 	}
 
 	private float[] vals = new float[16];
+
+	public int getPlayerNumber() {
+		return playerNumber;
+	}
 }

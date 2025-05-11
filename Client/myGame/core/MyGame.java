@@ -30,7 +30,7 @@ public class MyGame extends VariableFrameRateGame {
 
 	private GameObject avatar;
 	private AnimatedShape paddleS, paddleS_2;
-	private ObjShape ghostShape;
+	private AnimatedShape ghostShape;
 	private TextureImage paddleTexture;
 
 	private boolean isLeftSide = true;
@@ -50,6 +50,7 @@ public class MyGame extends VariableFrameRateGame {
 
 	public static final float PADDLE_SCALE = 0.1f;
 	private boolean isMultiplayerMode = true;
+	private AnimatedShape ghostMasterShape;
 
 	public void setMultiplayerMode(boolean multiplayer) {
 		isMultiplayerMode = multiplayer;
@@ -76,7 +77,6 @@ public class MyGame extends VariableFrameRateGame {
 
 	@Override
 	public void loadShapes() {
-		ghostShape = new ImportedModel("paddle.obj");
 		paddleS = new AnimatedShape("pong.rkm", "pong.rks");
 		paddleS.loadAnimation("Bounce", "bounce.rka");
 		paddleS_2 = new AnimatedShape("pong.rkm", "pong.rks");
@@ -115,7 +115,7 @@ public class MyGame extends VariableFrameRateGame {
 		engine.enablePhysicsWorldRender();
 
 		physicsEngine = engine.getSceneGraph().getPhysicsEngine();
-		physicsEngine.setGravity(new float[]{0f, -9.8f, 0f});
+		physicsEngine.setGravity(new float[]{0f, 0, 0f});
 
 		if (!isMultiplayerMode) {
 			new GameBuilder(this).buildLocalPlayer(0);
@@ -179,8 +179,14 @@ public class MyGame extends VariableFrameRateGame {
 		else if (isClientConnected() && !ghostManager.getGhostAvatars().isEmpty())
 			opponentPaddle = ghostManager.getGhostAvatars().firstElement();
 
-		if (ball != null && opponentPaddle != null)
-			ball.update((float) elapsedTime, opponentPaddle, getPlayerPosition());
+		if (ball != null) {
+			if (!isClientConnected() || protocolClient == null || protocolClient.getPlayerNumber() == 0) {
+				ball.update((float) elapsedTime, opponentPaddle, getPlayerPosition());
+
+				if (isClientConnected())
+					protocolClient.sendBallMessage(ball.getBall().getWorldLocation());
+			}
+		}
 
 		if (!isClientConnected() && npc != null)
 			npc.update((float) elapsedTime, ball.getBall());
@@ -205,12 +211,16 @@ public class MyGame extends VariableFrameRateGame {
 	public void setAvatar(GameObject avatar) { this.avatar = avatar; }
 	public AnimatedShape getPaddleS() { return paddleS; }
 	public AnimatedShape getPaddleS_2() { return paddleS_2; }
-	public ObjShape getGhostShape() { return ghostShape; }
+	public AnimatedShape getGhostShape() { return ghostShape; }
 	public TextureImage getGhostTexture() { return paddleTexture; }
 	public Sound getBounceSound() { return bounceSound; }
 	public void setLeftSide(boolean leftSide) { isLeftSide = leftSide; }
 	public boolean isLeftSide() { return isLeftSide; }
-	public Vector3f getPlayerPosition() { return avatar.getWorldLocation(); }
+	public Vector3f getPlayerPosition() {
+		if (avatar == null)
+			return new Vector3f(0, 0, 0);
+		return avatar.getWorldLocation();
+	}
 	public Matrix4f getAvatarOriginalRotation() {
 		if (avatarOriginalRotation == null) {
 			return new Matrix4f()
@@ -252,4 +262,5 @@ public class MyGame extends VariableFrameRateGame {
 	public GameBuilder getGameBuilder() {
 		return new GameBuilder(this);
 	}
+
 }

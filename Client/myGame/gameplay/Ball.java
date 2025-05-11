@@ -1,6 +1,7 @@
 package myGame.gameplay;
 
 import myGame.core.MyGame;
+import myGame.networking.GhostAvatar;
 import org.joml.*;
 import tage.*;
 import tage.shapes.Sphere;
@@ -26,6 +27,10 @@ public class Ball {
         game = g;
         ball = createBall();
         resetBall();
+    }
+
+    public void setPosition(Vector3f pos) {
+        ball.setLocalTranslation(new Matrix4f().translation(pos));
     }
 
     private GameObject createBall() {
@@ -56,6 +61,14 @@ public class Ball {
         if (opponentPaddle != null) {
             Vector3f opponentPos = opponentPaddle.getLocalTranslation().getTranslation(new Vector3f());
             opponentHit = checkCollision(nextPos, opponentPos, false);
+        }
+
+        for (GhostAvatar ghost : game.getGhostManager().getGhostAvatars()) {
+            Vector3f ghostPos = ghost.getLocalTranslation().getTranslation(new Vector3f());
+            if (checkCollision(nextPos, ghostPos, false)) {
+                ghost.playBounceAnimation();
+                ballVelocity.mul(1.05f);
+            }
         }
 
         if (playerHit || opponentHit) {
