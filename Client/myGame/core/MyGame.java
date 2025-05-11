@@ -29,7 +29,8 @@ public class MyGame extends VariableFrameRateGame {
 
 	private boolean isLeftSide = true;
 	private boolean isClientConnected = false;
-	private boolean isMultiplayerMode = false;
+	// MAKE SURE TO SET THIS TO FALSE FOR LOCAL PLAY
+	private boolean isMultiplayerMode = true;
 
 	private Sound bounceSound;
 	private Ball ball;
@@ -182,27 +183,25 @@ public class MyGame extends VariableFrameRateGame {
 			opponentPaddle = ghostManager.getGhostAvatars().firstElement();
 		}
 
-		boolean isBallController = !isClientConnected || (protocolClient != null && protocolClient.getPlayerNumber() == 0);
-
-		if (ball != null && isBallController && hudManager.isGameStarted()) {
+		if (ball != null && hudManager.isGameStarted()) {
 			ball.update((float) elapsedTime, opponentPaddle, getPlayerPosition());
 
-			float ballX = ball.getBall().getWorldLocation().x();
-			if (Math.abs(ballX) > 7f) {
-				if (ballX < 0) {
-					hudManager.addOpponentScore();
-				} else {
-					hudManager.addPlayerScore();
-				}
-				if (isClientConnected && protocolClient != null && protocolClient.getPlayerNumber() == 0) {
+			if (isClientConnected && protocolClient != null && protocolClient.getPlayerNumber() == 0) {
+				float ballX = ball.getBall().getWorldLocation().x();
+				if (Math.abs(ballX) > 7f) {
+					if (ballX < 0) {
+						hudManager.addOpponentScore();
+					} else {
+						hudManager.addPlayerScore();
+					}
 					protocolClient.sendScoreUpdate(hudManager.getPlayerScore(), hudManager.getOpponentScore());
+					ball.resetBall();
 				}
-				ball.resetBall();
-			}
 
-			if (isClientConnected && protocolClient != null && protocolClient.getPlayerNumber() == 0)
 				protocolClient.sendBallMessage(ball.getBall().getWorldLocation());
+			}
 		}
+
 
 		if (!hudManager.isGameStarted() && ball != null) {
 			Vector3f ballPos = ball.getBall().getWorldLocation();

@@ -56,8 +56,11 @@ public class Ball {
         Vector3f move = new Vector3f(ballVelocity).mul(delta);
         Vector3f nextPos = new Vector3f(pos).add(move);
 
-        boolean playerHit = checkCollision(nextPos, playerPosition, true);
-        boolean opponentHit = false;
+        boolean playerHit = false;
+        if (game.getAvatar() != null) {
+            Vector3f myPaddlePos = game.getAvatar().getWorldLocation();
+            playerHit = checkCollision(nextPos, myPaddlePos, true);
+        }        boolean opponentHit = false;
 
         if (opponentPaddle != null) {
             Vector3f opponentPos = opponentPaddle.getLocalTranslation().getTranslation(new Vector3f());
