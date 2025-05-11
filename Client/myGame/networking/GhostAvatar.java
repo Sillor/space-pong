@@ -50,6 +50,7 @@ public class GhostAvatar extends GameObject
 				if (bounce != null) {
 					float randomPitch = 0.9f + (float)(Math.random()) * 0.2f;
 					bounce.setPitch(randomPitch);
+					game.getBounceSound().setLocation(game.getBall().getBall().getLocalTranslation().getTranslation(new Vector3f()));
 					bounce.play();
 				}
 			}
