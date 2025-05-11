@@ -148,6 +148,13 @@ public class ProtocolClient extends GameConnectionClient {
 					);
 					game.getBall().setPosition(ballPos);
 					break;
+
+				case "score":
+					int player = Integer.parseInt(tokens[2]);
+					int opponent = Integer.parseInt(tokens[3]);
+					game.getHudManager().setScores(player, opponent);
+					break;
+
 			}
 		}
 	}
@@ -155,6 +162,14 @@ public class ProtocolClient extends GameConnectionClient {
 	public void sendJoinMessage() {
 		try {
 			sendPacket("join," + id);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendScoreUpdate(int playerScore, int opponentScore) {
+		try {
+			sendPacket(String.format("score,%s,%d,%d", id.toString(), playerScore, opponentScore));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

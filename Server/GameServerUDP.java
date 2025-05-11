@@ -95,6 +95,15 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 					pos = new String[]{tokens[2], tokens[3], tokens[4]};
 					sendMoveMessages(clientID, pos);
 					break;
+
+				case "score":
+					try {
+						UUID senderId = UUID.fromString(tokens[1]);
+						forwardPacketToAll(message, senderId);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					break;
 			}
 		}
 	}

@@ -1,9 +1,11 @@
 package myGame.input;
 
 import myGame.core.MyGame;
+import myGame.core.HUDManager;
 import net.java.games.input.Component;
 import org.joml.Vector3f;
 import tage.input.*;
+import tage.input.action.AbstractInputAction;
 
 /**
  * Handles all input and action bindings.
@@ -40,11 +42,29 @@ public class InputHandler {
                 new SendCloseConnectionPacketAction(game), InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
         inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.HOME,
                 new TestAction(game), IInputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+        inputManager.associateActionWithAllKeyboards(Component.Identifier.Key.P,
+                new StartGameAction(game), InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
         // Gamepad controls
         inputManager.associateActionWithAllGamepads(Component.Identifier.Button._1,
                 new vAction(game, true), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         inputManager.associateActionWithAllGamepads(Component.Identifier.Axis.X,
                 new TurnAction(game), InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+    }
+
+    private static class StartGameAction extends AbstractInputAction {
+        private final MyGame game;
+
+        public StartGameAction(MyGame game) {
+            this.game = game;
+        }
+
+        @Override
+        public void performAction(float time, net.java.games.input.Event event) {
+            HUDManager hud = game.getHudManager();
+            if (!hud.isGameStarted()) {
+                hud.startGame();
+            }
+        }
     }
 }

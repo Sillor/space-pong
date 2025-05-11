@@ -3,7 +3,6 @@ package myGame.core;
 import myGame.gameplay.Ball;
 import myGame.gameplay.NPC;
 import myGame.input.InputHandler;
-import myGame.networking.GhostAvatar;
 import myGame.networking.GhostManager;
 import myGame.networking.ProtocolClient;
 import org.joml.*;
@@ -35,6 +34,8 @@ public class MyGame extends VariableFrameRateGame {
 	private Sound bounceSound;
 	private Ball ball;
 	private NPC npc;
+
+	private HUDManager hudManager;
 
 	private final String serverAddress;
 	private final int serverPort;
@@ -104,6 +105,8 @@ public class MyGame extends VariableFrameRateGame {
 		physicsEngine = engine.getSceneGraph().getPhysicsEngine();
 		physicsEngine.setGravity(new float[]{0f, 0f, 0f});
 
+		hudManager = new HUDManager(this);
+
 		if (!isMultiplayerMode) {
 			new GameBuilder(this).buildLocalPlayer(0);
 			npc = new NPC(this);
@@ -135,7 +138,8 @@ public class MyGame extends VariableFrameRateGame {
 		double elapsedTime = currentTime - startTime;
 		startTime = currentTime;
 
-		new HUDManager(this).updateHUD();
+		hudManager.updateHUD();
+
 		if (inputManager != null) inputManager.update((float) elapsedTime);
 		if (protocolClient != null) protocolClient.processPackets();
 		if (physicsEngine != null) physicsEngine.update((float) elapsedTime);
@@ -160,10 +164,33 @@ public class MyGame extends VariableFrameRateGame {
 			opponentPaddle = ghostManager.getGhostAvatars().firstElement();
 		}
 
-		if (ball != null) {
+		boolean isBallController = !isClientConnected || (protocolClient != null && protocolClient.getPlayerNumber() == 0);
+
+		if (ball != null && isBallController && hudManager.isGameStarted()) {
 			ball.update((float) elapsedTime, opponentPaddle, getPlayerPosition());
+
+			float ballX = ball.getBall().getWorldLocation().x();
+			if (Math.abs(ballX) > 7f) {
+				if (ballX < 0) {
+					hudManager.addOpponentScore();
+				} else {
+					hudManager.addPlayerScore();
+				}
+				if (isClientConnected && protocolClient != null && protocolClient.getPlayerNumber() == 0) {
+					protocolClient.sendScoreUpdate(hudManager.getPlayerScore(), hudManager.getOpponentScore());
+				}
+				ball.resetBall();
+			}
+
 			if (isClientConnected && protocolClient != null && protocolClient.getPlayerNumber() == 0)
 				protocolClient.sendBallMessage(ball.getBall().getWorldLocation());
+		}
+
+		if (!hudManager.isGameStarted() && ball != null) {
+			Vector3f ballPos = ball.getBall().getWorldLocation();
+			if (ballPos.x() != 0f || ballPos.y() != 0.5f || ballPos.z() != -3f) {
+				hudManager.startGame();
+			}
 		}
 
 		if (!isClientConnected && npc != null)
@@ -190,6 +217,7 @@ public class MyGame extends VariableFrameRateGame {
 	public Sound getBounceSound() { return bounceSound; }
 	public void setLeftSide(boolean leftSide) { isLeftSide = leftSide; }
 	public boolean isLeftSide() { return isLeftSide; }
+	public HUDManager getHudManager() { return hudManager; }
 
 	public Vector3f getPlayerPosition() {
 		return avatar == null ? new Vector3f(0, 0, 0) : avatar.getWorldLocation();
