@@ -23,16 +23,15 @@ public class HUDManager {
         double currentTime = System.currentTimeMillis();
         int timeElapsed = (int) ((currentTime - game.getStartTime()) / 1000);
 
-        String scoreLine = String.format("Player: %d   Opponent: %d", playerScore, opponentScore);
+        String scoreLine = String.format("Player 1: %d   Player 2: %d", playerScore, opponentScore);
         String startLine = gameStarted ? "" : "   [Press P to Start]";
         String hud1 = scoreLine + startLine;
 
-        String hud2 = String.format("Mode: %s   Connection: %s",
-                game.isMultiplayerMode() ? "Multiplayer" : "Singleplayer",
+        String hud2 = String.format("Connection: %s",
                 game.isClientConnected() ? "Online" : "Offline");
 
         MyGame.getEngine().getHUDmanager().setHUD1(hud1, new Vector3f(1, 1, 0), 15, 15);
-        MyGame.getEngine().getHUDmanager().setHUD2(hud2, new Vector3f(1, 1, 1), 15, 35);
+        MyGame.getEngine().getHUDmanager().setHUD2(hud2, new Vector3f(1, 1, 1), 15, 45);
     }
 
     public void startGame() {

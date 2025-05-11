@@ -104,7 +104,7 @@ void main(void)
 
 		// normalize the light, normal, and view vectors:
 		L = normalize(lightDir);
-		V = normalize(-v_matrix[3].xyz - varyingVertPos);
+		V = normalize(inverse(v_matrix)[3].xyz - varyingVertPos);
 
 		if (heightMapped == 1)
 			N = estimateNormal(.005, 5.0);

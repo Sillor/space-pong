@@ -20,8 +20,8 @@ public class GameBuilder {
     }
 
     public void buildScene() {
-        buildTorus();
-        buildAxes();
+//        buildTorus();
+//        buildAxes();
         buildTerrain();
         buildGroundPlane();
         buildCeilingPlane();

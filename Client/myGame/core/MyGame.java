@@ -29,7 +29,7 @@ public class MyGame extends VariableFrameRateGame {
 
 	private boolean isLeftSide = true;
 	private boolean isClientConnected = false;
-	private boolean isMultiplayerMode = true;
+	private boolean isMultiplayerMode = false;
 
 	private Sound bounceSound;
 	private Ball ball;
@@ -51,7 +51,7 @@ public class MyGame extends VariableFrameRateGame {
 		super();
 		this.serverAddress = serverAddress;
 		this.serverPort = serverPort;
-		this.serverProtocol = protocol.equalsIgnoreCase("TCP") ? ProtocolType.TCP : ProtocolType.UDP;
+		this.serverProtocol = ProtocolType.UDP;
 		this.ghostManager = new GhostManager(this);
 	}
 
@@ -83,10 +83,28 @@ public class MyGame extends VariableFrameRateGame {
 
 	@Override
 	public void initializeLights() {
-		Light.setGlobalAmbient(0.5f, 0.2f, 0.5f);
-		Light light = new Light();
-		light.setLocation(new Vector3f(0f, 5f, 5f));
-		engine.getSceneGraph().addLight(light);
+		Light.setGlobalAmbient(0.15f, 0.15f, 0.15f);
+
+		Light main = new Light();
+		main.setLocation(new Vector3f(0f, 5f, 5f));
+		main.setAmbient(0.2f, 0.2f, 0.2f);
+		main.setDiffuse(0.7f, 0.7f, 0.7f);
+		main.setSpecular(0.8f, 0.8f, 0.8f);
+		engine.getSceneGraph().addLight(main);
+
+		Light left = new Light();
+		left.setLocation(new Vector3f(-5f, 3f, -3f));
+		left.setAmbient(0.1f, 0.1f, 0.5f);
+		left.setDiffuse(0.3f, 0.3f, 1.2f);
+		left.setSpecular(0.4f, 0.4f, 1.2f);
+		engine.getSceneGraph().addLight(left);
+
+		Light right = new Light();
+		right.setLocation(new Vector3f(5f, 3f, -3f));
+		right.setAmbient(0.5f, 0.1f, 0.1f);
+		right.setDiffuse(1.2f, 0.3f, 0.3f);
+		right.setSpecular(1.2f, 0.3f, 0.3f);
+		engine.getSceneGraph().addLight(right);
 	}
 
 	@Override
@@ -100,7 +118,7 @@ public class MyGame extends VariableFrameRateGame {
 	public void initializeGame() {
 		startTime = System.currentTimeMillis();
 		engine.getRenderSystem().setWindowDimensions(1900, 1000);
-		engine.enablePhysicsWorldRender();
+//		engine.enablePhysicsWorldRender();
 
 		physicsEngine = engine.getSceneGraph().getPhysicsEngine();
 		physicsEngine.setGravity(new float[]{0f, 0f, 0f});
