@@ -1,1 +1,0 @@
-javac -Xlint:unchecked myGame/*.java
